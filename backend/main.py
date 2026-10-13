@@ -62,12 +62,20 @@ def _mri_validation_error(exc: ValueError) -> HTTPException:
     return HTTPException(status_code=400, detail=str(exc))
 
 
+def _nifti_suffix(filename: str) -> str:
+    name = (filename or "").lower()
+    if name.endswith(".nii.gz") or name.endswith(".gz"):
+        return ".nii.gz"
+    return ".nii"
+
+
 async def _load_image_from_upload(file: UploadFile, slice_index: Optional[int]) -> np.ndarray:
-    file_type = file.filename.split(".")[-1]
+    filename = file.filename or "upload.bin"
     raw = await file.read()
 
-    if file_type in ["nii", "gz"]:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".nii") as tmp:
+    if filename.lower().endswith((".nii", ".nii.gz", ".gz")):
+        suffix = _nifti_suffix(filename)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(raw)
             path = tmp.name
 
@@ -105,27 +113,37 @@ async def validate_upload(
     modality: Optional[str] = Form(None),
     slice_index: Optional[int] = Form(None),
 ):
-    """Reject non-brain-MRI uploads early (MRI workspace only)."""
+    """Accept any readable image/volume. X-Ray skips checks entirely."""
     if not _is_mri_modality(modality):
         return {"valid": True, "modality": modality}
 
     filename = (file.filename or "").lower()
     raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty file uploaded.")
 
     try:
         if filename.endswith(".nii") or filename.endswith(".gz"):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".nii") as tmp:
+            suffix = _nifti_suffix(filename)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 tmp.write(raw)
                 path = tmp.name
             volume = nib.load(path).get_fdata()
             validate_brain_mri_volume(volume)
         else:
-            # Keep RGB when available so color-photo rejection still works
             pil = Image.open(io.BytesIO(raw))
-            image = np.array(pil.convert("RGB") if pil.mode in ("RGB", "RGBA") else pil.convert("L"))
+            pil.load()
+            image = np.array(pil.convert("L"))
             validate_brain_mri(image)
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise _mri_validation_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not read upload ({type(exc).__name__}): {exc}",
+        ) from exc
 
     return {"valid": True, "modality": modality or "mri"}
 
@@ -135,20 +153,25 @@ async def get_slices(
     file: UploadFile = File(...),
     modality: Optional[str] = Form(None),
 ):
+    filename = (file.filename or "").lower()
     raw = await file.read()
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".nii") as tmp:
+    suffix = _nifti_suffix(filename)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(raw)
         path = tmp.name
 
-    volume = nib.load(path).get_fdata()
+    try:
+        volume = nib.load(path).get_fdata()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not read NIfTI file: {exc}",
+        ) from exc
 
-    if _is_mri_modality(modality):
-        try:
-            validate_brain_mri_volume(volume)
-        except ValueError as exc:
-            raise _mri_validation_error(exc) from exc
+    if volume.ndim < 3:
+        raise HTTPException(status_code=400, detail="NIfTI volume must be 3D.")
 
-    return {"slices": volume.shape[2], "modality": modality}
+    return {"slices": int(volume.shape[2]), "modality": modality}
 
 
 @app.post("/predict")
@@ -157,13 +180,10 @@ async def predict(
     slice_index: int = Form(None),
     modality: Optional[str] = Form(None),
 ):
-    image = await _load_image_from_upload(file, slice_index)
-
-    if _is_mri_modality(modality):
-        try:
-            validate_brain_mri(image)
-        except ValueError as exc:
-            raise _mri_validation_error(exc) from exc
+    try:
+        image = await _load_image_from_upload(file, slice_index)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read upload: {exc}") from exc
 
     pipeline = _run_pipeline(image)
 
@@ -186,15 +206,12 @@ async def predict_tumor(
 ):
     """
     Tumor classification + XAI reasoning after segmentation.
-  Analyzes mask composition to distinguish normal MRI vs tumor-present slices.
+    Analyzes mask composition to distinguish normal MRI vs tumor-present slices.
     """
-    image = await _load_image_from_upload(file, slice_index)
-
-    if _is_mri_modality(modality):
-        try:
-            validate_brain_mri(image)
-        except ValueError as exc:
-            raise _mri_validation_error(exc) from exc
+    try:
+        image = await _load_image_from_upload(file, slice_index)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read upload: {exc}") from exc
 
     pipeline = _run_pipeline(image)
 

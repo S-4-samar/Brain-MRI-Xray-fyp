@@ -1,76 +1,66 @@
-"""Light checks that uploaded slices are usable medical images (not blank/corrupt)."""
+"""Upload sanity checks — openable image/volume with non-empty content.
+
+Strict “looks like brain MRI” heuristics were removed because they rejected
+valid clinical PNG/JPG slices in production.
+"""
 
 from __future__ import annotations
 
 import numpy as np
 
 MRI_REQUIRED_MSG = (
-    "This image is not a brain MRI. Please upload a brain MRI scan "
-    "(NIfTI .nii/.nii.gz or an axial brain MRI slice in PNG/JPG format)."
+    "Could not read this file as a medical image. "
+    "Please upload a NIfTI (.nii / .nii.gz) or PNG/JPG slice."
 )
 
 
 def _to_grayscale(image: np.ndarray) -> np.ndarray:
     if image.ndim == 3 and image.shape[2] >= 3:
-        # Reject obvious color photos (MRI/X-Ray slices are grayscale)
-        rgb = image[..., :3].astype(np.float64)
-        if float(np.std(rgb, axis=2).mean()) > 18.0:
-            raise ValueError(MRI_REQUIRED_MSG)
-        return np.mean(rgb, axis=2)
+        return np.mean(image[..., :3].astype(np.float64), axis=2)
     if image.ndim == 3:
         return image[..., 0].astype(np.float64)
     return image.astype(np.float64)
 
 
 def is_brain_mri(image: np.ndarray) -> tuple[bool, str]:
-    """
-    Return (True, '') if the slice is usable for analysis.
-    Kept intentionally light so real PNG/JPG MRI slices are not rejected in production.
-    """
-    if image.size == 0:
+    """Return (True, '') if the array is a usable 2D image."""
+    if image is None or image.size == 0:
         return False, MRI_REQUIRED_MSG
 
     try:
         gray = _to_grayscale(image)
-    except ValueError as exc:
-        return False, str(exc)
-
-    h, w = gray.shape
-    if min(h, w) < 32:
-        return False, "Image resolution is too low for brain MRI analysis."
-
-    p1, p99 = np.percentile(gray, [1, 99])
-    dynamic_range = float(p99 - p1)
-    if dynamic_range < 1e-3:
+    except Exception:
         return False, MRI_REQUIRED_MSG
 
-    # Reject nearly-blank images only
-    norm = np.clip((gray - p1) / dynamic_range, 0, 1)
-    if float(norm.std()) < 0.02:
+    if gray.ndim != 2 or min(gray.shape) < 16:
+        return False, "Image resolution is too low for analysis."
+
+    if float(np.std(gray)) < 1e-6:
         return False, MRI_REQUIRED_MSG
 
     return True, ""
 
 
 def validate_brain_mri(image: np.ndarray) -> None:
-    """Raise ValueError if the image does not look like a usable MRI slice."""
     ok, message = is_brain_mri(image)
     if not ok:
         raise ValueError(message)
 
 
 def validate_brain_mri_volume(volume: np.ndarray) -> None:
-    """Validate a 3D NIfTI volume using its middle axial slice."""
-    if volume.ndim < 3:
+    if volume is None or volume.size == 0:
         raise ValueError(MRI_REQUIRED_MSG)
 
-    if volume.size == 0 or np.std(volume) < 1e-6:
+    if volume.ndim < 3:
+        # Allow a single 2D array wrapped as volume edge-case
+        if volume.ndim == 2:
+            validate_brain_mri(volume)
+            return
+        raise ValueError(MRI_REQUIRED_MSG)
+
+    if float(np.std(volume)) < 1e-6:
         raise ValueError(MRI_REQUIRED_MSG)
 
     spatial = volume.shape[:3]
-    if min(spatial) < 16:
-        raise ValueError(MRI_REQUIRED_MSG)
-
     mid = spatial[2] // 2
-    slice_2d = volume[:, :, mid]
-    validate_brain_mri(slice_2d)
+    validate_brain_mri(volume[:, :, mid])

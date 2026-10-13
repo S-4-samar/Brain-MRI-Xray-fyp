@@ -571,7 +571,10 @@ function getApiErrorMessage(err, fallback) {
   if (Array.isArray(detail)) {
     return detail.map((item) => item?.msg || String(item)).join(", ");
   }
-  return fallback;
+  if (!err?.response) {
+    return `Cannot reach API at ${API_URL}. Check Railway is online and REACT_APP_API_URL on Vercel.`;
+  }
+  return fallback || `Request failed (${err.response.status}).`;
 }
 
 // ─── App ─────────────────────────────────────────────────────────────────────
@@ -639,10 +642,7 @@ export default function App({ modality = "mri", onChangeModality }) {
         await axios.post(`${API_URL}/validate_upload`, validateForm);
       } catch (err) {
         setUploadError(
-          getApiErrorMessage(
-            err,
-            "This image is not a brain MRI. Please upload a brain MRI scan (NIfTI or axial brain MRI slice)."
-          )
+          getApiErrorMessage(err, "Upload validation failed. Please try another file.")
         );
         setFile(null);
         setResult(null);
@@ -672,10 +672,7 @@ export default function App({ modality = "mri", onChangeModality }) {
         setFlow("slice-select"); // jump straight to slice picker
       } catch (err) {
         setUploadError(
-          getApiErrorMessage(
-            err,
-            "This image is not a brain MRI. Please upload a brain MRI scan (NIfTI or axial brain MRI slice)."
-          )
+          getApiErrorMessage(err, "Could not read this NIfTI file.")
         );
         setFile(null);
         setTotalSlices(null);
@@ -1101,7 +1098,7 @@ export default function App({ modality = "mri", onChangeModality }) {
               </svg>
               <div>
                 <p style={{ fontSize: 13, color: Colors.errorRed, fontWeight: 500, marginBottom: 2 }}>
-                  {modality === "mri" ? "Invalid MRI Input" : "Upload Error"}
+                  Upload Error
                 </p>
                 <p style={{ fontSize: 12, color: Colors.textSecondary, margin: 0 }}>
                   {uploadError}
