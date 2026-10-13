@@ -1,4 +1,4 @@
-"""Accept typical brain MRI / X-Ray; reject photos (portraits, pets, snapshots)."""
+"""Accept medical MRI/X-Ray (including NIfTI and false-color scans); reject snapshots."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ MRI_REQUIRED_MSG = (
     "(NIfTI .nii/.nii.gz or an axial brain MRI slice in PNG/JPG format)."
 )
 XRAY_REQUIRED_MSG = (
-    "This image is not an X-Ray. Please upload a grayscale medical X-Ray "
-    "(chest or planar radiograph in PNG/JPG format)."
+    "This image is not an X-Ray. Please upload a medical X-Ray "
+    "(grayscale or clinical PNG/JPG)."
 )
 
 
@@ -74,27 +74,43 @@ def _features(gray: np.ndarray) -> dict:
     inner = ((y - cy) / (h * 0.40)) ** 2 + ((x - cx) / (w * 0.40)) ** 2 <= 1.0
     blur = gaussian_filter(n, 1.1)
     highfreq = float(np.mean(np.abs(n - blur)))
-    dx = sobel(n, axis=0)
-    dy = sobel(n, axis=1)
     return {
-        "h": h,
-        "w": w,
         "corner_mean": float(corners.mean()),
         "dark_frac": float((n < 0.08).mean()),
         "bright_frac": float((n > 0.85).mean()),
         "center_mean": float(n[inner].mean()) if inner.any() else 0.0,
         "tissue_frac": float((n[inner] > 0.12).mean()) if inner.any() else 0.0,
         "highfreq": highfreq,
-        "edge_h": float(np.mean(np.abs(dx))),
-        "edge_v": float(np.mean(np.abs(dy))),
     }
 
 
+def _has_medical_fov(f: dict) -> bool:
+    """Black/dark canvas + brighter anatomy in the middle (MRI, CT, clinical X-ray)."""
+    return (
+        f["dark_frac"] >= 0.18
+        and f["corner_mean"] <= 0.24
+        and f["bright_frac"] <= 0.22
+        and f["center_mean"] >= 0.14
+        and f["tissue_frac"] >= 0.18
+        and f["center_mean"] >= f["corner_mean"] * 1.25
+    )
+
+
+def _is_snapshot(rgb, f: dict) -> bool:
+    """Portraits, pets, memes — not clinical."""
+    colorful = _chroma(rgb) > 6.5 or _saturation(rgb) > 0.07
+    white_studio = f["bright_frac"] > 0.25 and f["dark_frac"] < 0.14
+    gray_vignette = f["corner_mean"] > 0.28 and f["dark_frac"] < 0.16
+    if white_studio:
+        return True
+    if gray_vignette:
+        return True
+    if colorful and not _has_medical_fov(f):
+        return True
+    return False
+
+
 def is_brain_mri(image: np.ndarray) -> tuple[bool, str]:
-    """
-    True MRI: nearly grayscale + large black FOV + brighter oval tissue.
-    Portraits (white bg, color) and pet photos (gray vignette, color/texture) fail.
-    """
     if image is None or np.asarray(image).size == 0:
         return False, MRI_REQUIRED_MSG
 
@@ -102,32 +118,19 @@ def is_brain_mri(image: np.ndarray) -> tuple[bool, str]:
     if min(gray.shape) < 48:
         return False, "Image resolution is too low for brain MRI analysis."
 
-    # Color photos / ID shots / the cat mugshot (warm fur) vs true grayscale MRI.
-    if _chroma(rgb) > 6.5 or _saturation(rgb) > 0.07:
-        return False, MRI_REQUIRED_MSG
-
     f = _features(gray)
-    # Real axial MRI has a black canvas; portraits are white; cat mugshot is gray.
-    if f["dark_frac"] < 0.22:
+    if _is_snapshot(rgb, f):
         return False, MRI_REQUIRED_MSG
-    if f["bright_frac"] > 0.18:
-        return False, MRI_REQUIRED_MSG
-    if f["corner_mean"] > 0.22:
-        return False, MRI_REQUIRED_MSG
-    if f["center_mean"] < 0.16 or f["tissue_frac"] < 0.20:
-        return False, MRI_REQUIRED_MSG
-    if f["center_mean"] < f["corner_mean"] * 1.35:
-        return False, MRI_REQUIRED_MSG
-    # Fur / hair / overlay text is much busier than an MRI slice.
-    if f["highfreq"] > 0.078:
-        return False, MRI_REQUIRED_MSG
-    # Height-chart / ruler lines are strongly horizontal.
-    if f["edge_h"] > f["edge_v"] * 1.35 and f["edge_h"] > 0.06:
+    if not _has_medical_fov(f):
         return False, MRI_REQUIRED_MSG
     return True, ""
 
 
 def is_xray(image: np.ndarray) -> tuple[bool, str]:
+    """
+    Accept grayscale radiographs AND false-color clinical images (e.g. blue LUT).
+    Reject portraits / pet photos.
+    """
     if image is None or np.asarray(image).size == 0:
         return False, XRAY_REQUIRED_MSG
 
@@ -135,21 +138,17 @@ def is_xray(image: np.ndarray) -> tuple[bool, str]:
     if min(gray.shape) < 48:
         return False, "Image resolution is too low for X-Ray analysis."
 
-    if _chroma(rgb) > 6.5 or _saturation(rgb) > 0.07:
-        return False, XRAY_REQUIRED_MSG
-
     f = _features(gray)
-    # Portraits: white background. X-rays usually have dark collimation.
-    if f["bright_frac"] > 0.28 and f["dark_frac"] < 0.10:
+    if _is_snapshot(rgb, f):
         return False, XRAY_REQUIRED_MSG
-    if f["corner_mean"] > 0.45:
-        return False, XRAY_REQUIRED_MSG
-    if f["highfreq"] > 0.095:
-        return False, XRAY_REQUIRED_MSG
+    if _has_medical_fov(f):
+        return True, ""
+
     p1, p99 = np.percentile(gray, [1, 99])
-    if float(p99 - p1) < 12:
-        return False, XRAY_REQUIRED_MSG
-    return True, ""
+    grayscale = _chroma(rgb) <= 6.5 and _saturation(rgb) <= 0.08
+    if grayscale and float(p99 - p1) >= 12 and f["highfreq"] < 0.10 and f["corner_mean"] <= 0.42:
+        return True, ""
+    return False, XRAY_REQUIRED_MSG
 
 
 def validate_brain_mri(image: np.ndarray) -> None:
@@ -173,12 +172,13 @@ def validate_for_modality(image: np.ndarray, modality: str | None) -> None:
 
 
 def validate_brain_mri_volume(volume: np.ndarray) -> None:
+    """NIfTI is a medical volume format — require a real 3D scan, not 2D photo heuristics."""
+    if volume is None or volume.size == 0:
+        raise ValueError(MRI_REQUIRED_MSG)
     if volume.ndim < 3:
         raise ValueError(MRI_REQUIRED_MSG)
-    if volume.size == 0 or np.std(volume) < 1e-6:
+    if float(np.std(volume)) < 1e-6:
         raise ValueError(MRI_REQUIRED_MSG)
     spatial = volume.shape[:3]
     if min(spatial) < 16:
         raise ValueError(MRI_REQUIRED_MSG)
-    mid = spatial[2] // 2
-    validate_brain_mri(volume[:, :, mid])

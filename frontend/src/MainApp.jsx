@@ -634,6 +634,11 @@ export default function App({ modality = "mri", onChangeModality }) {
   }, [result]);
 
   // ── File handler ─────────────────────────────────────────────────────────
+  const isNiftiFile = (name = "") => {
+    const lower = name.toLowerCase();
+    return lower.endsWith(".nii") || lower.endsWith(".nii.gz") || lower.endsWith(".gz");
+  };
+
   const handleFile = useCallback(async (f) => {
     if (!f) return;
     setUploadError(null);
@@ -643,7 +648,7 @@ export default function App({ modality = "mri", onChangeModality }) {
     validateForm.append("file", f);
     validateForm.append("modality", modality);
     try {
-      await axios.post(`${API_URL}/validate_upload`, validateForm);
+      await axios.post(`${API_URL}/validate_upload`, validateForm, { timeout: 120000 });
     } catch (err) {
       setUploadError(
         getApiErrorMessage(
@@ -668,19 +673,19 @@ export default function App({ modality = "mri", onChangeModality }) {
     setPrediction(null);
     setPredictionStatus("idle");
 
-    if (f.name.endsWith(".nii") || f.name.endsWith(".gz")) {
+    if (isNiftiFile(f.name)) {
       const formData = new FormData();
       formData.append("file", f);
       formData.append("modality", modality);
       try {
-        const res = await axios.post(`${API_URL}/get_slices`, formData);
+        const res = await axios.post(`${API_URL}/get_slices`, formData, { timeout: 120000 });
         const count = res.data.slices;
         setTotalSlices(count);
         setSlice(Math.floor(count / 2));
-        setFlow("slice-select"); // jump straight to slice picker
+        setFlow("slice-select");
       } catch (err) {
         setUploadError(
-          getApiErrorMessage(err, "Could not read this NIfTI file.")
+          getApiErrorMessage(err, "Could not read this NIfTI file. Use MRI mode and a .nii / .nii.gz volume.")
         );
         setFile(null);
         setTotalSlices(null);
@@ -1155,7 +1160,7 @@ export default function App({ modality = "mri", onChangeModality }) {
                   type="file"
                   onChange={(e) => handleFile(e.target.files[0])}
                   style={{ display: "none" }}
-                  accept=".nii,.nii.gz,.png,.jpg,.dcm"
+                  accept=".nii,.nii.gz,.gz,.png,.jpg,.jpeg,.dcm,application/octet-stream,image/png,image/jpeg"
                 />
                 {file ? (
                   <>
@@ -1211,7 +1216,7 @@ export default function App({ modality = "mri", onChangeModality }) {
                       <p style={{ fontSize: 15, color: Colors.textPrimary, marginBottom: 4, fontWeight: 500 }}>
                         Drop your {modality === "xray" ? "X-Ray" : "MRI"} file here
                       </p>
-                      <p style={{ fontSize: 13, color: Colors.textSecondary }}>or click to browse · NIfTI, DICOM, PNG, JPG</p>
+                      <p style={{ fontSize: 13, color: Colors.textSecondary }}>or click to browse · .nii / .nii.gz, PNG, JPG, JPEG</p>
                     </div>
                   </>
                 )}
