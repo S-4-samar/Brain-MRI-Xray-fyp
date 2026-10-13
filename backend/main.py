@@ -44,7 +44,7 @@ async def root():
     return {
         "status": "ok",
         "message": "Brain MRI API is running",
-        "api_version": "gated-v4",
+        "api_version": "gated-v5",
         "docs": "/docs",
         "endpoints": [
             "/validate_upload",
@@ -149,7 +149,7 @@ async def validate_upload(
             detail=f"Could not read upload ({type(exc).__name__}): {exc}",
         ) from exc
 
-    return {"valid": True, "modality": modality or "mri", "api_version": "gated-v4"}
+    return {"valid": True, "modality": modality or "mri", "api_version": "gated-v5"}
 
 
 @app.post("/get_slices")
