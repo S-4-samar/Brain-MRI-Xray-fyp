@@ -4,8 +4,13 @@ import { RegionLegendOrbitals } from "./components/region-legend-orbital.tsx";
 import CollectiveTeamSection from "./components/collective-team-section.tsx";
 import { TumorPredictionPanel } from "./components/tumor-prediction-panel.tsx";
 
-/** Backend base URL — set REACT_APP_API_URL on Vercel (e.g. https://your-app.up.railway.app) */
-const API_URL = (process.env.REACT_APP_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+/** Backend base URL — set REACT_APP_API_URL on Vercel (must include https://) */
+function normalizeApiUrl(raw) {
+  const trimmed = (raw || "http://127.0.0.1:8000").trim().replace(/\/$/, "");
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+const API_URL = normalizeApiUrl(process.env.REACT_APP_API_URL);
 
 const LABELS = ["Input MRI", "Contrast Enhanced", "Segmentation Mask", "Overlay", "Saliency Map"];
 /** Index of saliency / XAI image in `result.images` (after input + pipeline outputs). */
