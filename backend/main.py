@@ -120,7 +120,9 @@ async def validate_upload(
             volume = nib.load(path).get_fdata()
             validate_brain_mri_volume(volume)
         else:
-            image = np.array(Image.open(io.BytesIO(raw)).convert("L"))
+            # Keep RGB when available so color-photo rejection still works
+            pil = Image.open(io.BytesIO(raw))
+            image = np.array(pil.convert("RGB") if pil.mode in ("RGB", "RGBA") else pil.convert("L"))
             validate_brain_mri(image)
     except ValueError as exc:
         raise _mri_validation_error(exc) from exc

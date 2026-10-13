@@ -1,9 +1,8 @@
-"""Heuristic checks that uploaded slices look like brain MRI (not photos, X-Ray, etc.)."""
+"""Light checks that uploaded slices are usable medical images (not blank/corrupt)."""
 
 from __future__ import annotations
 
 import numpy as np
-from scipy.ndimage import sobel
 
 MRI_REQUIRED_MSG = (
     "This image is not a brain MRI. Please upload a brain MRI scan "
@@ -13,8 +12,9 @@ MRI_REQUIRED_MSG = (
 
 def _to_grayscale(image: np.ndarray) -> np.ndarray:
     if image.ndim == 3 and image.shape[2] >= 3:
+        # Reject obvious color photos (MRI/X-Ray slices are grayscale)
         rgb = image[..., :3].astype(np.float64)
-        if float(np.std(rgb, axis=2).mean()) > 12.0:
+        if float(np.std(rgb, axis=2).mean()) > 18.0:
             raise ValueError(MRI_REQUIRED_MSG)
         return np.mean(rgb, axis=2)
     if image.ndim == 3:
@@ -23,7 +23,10 @@ def _to_grayscale(image: np.ndarray) -> np.ndarray:
 
 
 def is_brain_mri(image: np.ndarray) -> tuple[bool, str]:
-    """Return (True, '') if the slice passes brain-MRI heuristics."""
+    """
+    Return (True, '') if the slice is usable for analysis.
+    Kept intentionally light so real PNG/JPG MRI slices are not rejected in production.
+    """
     if image.size == 0:
         return False, MRI_REQUIRED_MSG
 
@@ -33,7 +36,7 @@ def is_brain_mri(image: np.ndarray) -> tuple[bool, str]:
         return False, str(exc)
 
     h, w = gray.shape
-    if min(h, w) < 48:
+    if min(h, w) < 32:
         return False, "Image resolution is too low for brain MRI analysis."
 
     p1, p99 = np.percentile(gray, [1, 99])
@@ -41,57 +44,16 @@ def is_brain_mri(image: np.ndarray) -> tuple[bool, str]:
     if dynamic_range < 1e-3:
         return False, MRI_REQUIRED_MSG
 
+    # Reject nearly-blank images only
     norm = np.clip((gray - p1) / dynamic_range, 0, 1)
-
-    corner_size = max(4, int(min(h, w) * 0.12))
-    corners = np.concatenate(
-        [
-            norm[:corner_size, :corner_size].ravel(),
-            norm[:corner_size, -corner_size:].ravel(),
-            norm[-corner_size:, :corner_size].ravel(),
-            norm[-corner_size:, -corner_size:].ravel(),
-        ]
-    )
-    corner_mean = float(corners.mean())
-
-    cy, cx = h / 2.0, w / 2.0
-    y, x = np.ogrid[:h, :w]
-    ry, rx = h * 0.38, w * 0.38
-    brain_mask = ((y - cy) / ry) ** 2 + ((x - cx) / rx) ** 2 <= 1.0
-    center_vals = norm[brain_mask]
-    center_mean = float(center_vals.mean())
-    tissue_frac = float((center_vals > 0.08).sum() / max(center_vals.size, 1))
-
-    if center_mean < 0.12 or tissue_frac < 0.22:
-        return False, MRI_REQUIRED_MSG
-
-    if corner_mean > 0.38 and center_mean < 0.22:
-        return False, MRI_REQUIRED_MSG
-
-    if corner_mean > center_mean * 0.9 and corner_mean > 0.22:
-        return False, MRI_REQUIRED_MSG
-
-    dx = sobel(norm, axis=0)
-    dy = sobel(norm, axis=1)
-    edge = np.hypot(dx, dy)
-    edge_center = float(edge[brain_mask].mean())
-    edge_global = float(edge.mean())
-    if edge_global > 0.22 and edge_center / max(edge_global, 1e-6) < 1.05:
-        if center_mean > 0.35 and corner_mean > 0.12:
-            return False, MRI_REQUIRED_MSG
-
-    hist, _ = np.histogram(center_vals, bins=20, range=(0, 1))
-    hist = hist / max(hist.sum(), 1)
-    nonzero = hist[hist > 0]
-    entropy = float(-np.sum(nonzero * np.log2(nonzero)))
-    if entropy < 1.4:
+    if float(norm.std()) < 0.02:
         return False, MRI_REQUIRED_MSG
 
     return True, ""
 
 
 def validate_brain_mri(image: np.ndarray) -> None:
-    """Raise ValueError if the image does not look like brain MRI."""
+    """Raise ValueError if the image does not look like a usable MRI slice."""
     ok, message = is_brain_mri(image)
     if not ok:
         raise ValueError(message)
@@ -105,7 +67,6 @@ def validate_brain_mri_volume(volume: np.ndarray) -> None:
     if volume.size == 0 or np.std(volume) < 1e-6:
         raise ValueError(MRI_REQUIRED_MSG)
 
-    # BraTS-style volumes are typically 3D; reject obvious tiny volumes
     spatial = volume.shape[:3]
     if min(spatial) < 16:
         raise ValueError(MRI_REQUIRED_MSG)
