@@ -48,7 +48,7 @@ async def root():
     return {
         "status": "ok",
         "message": "Brain MRI API is running",
-        "api_version": "formats-v8",
+        "api_version": "nifti-v9",
         "docs": "/docs",
         "endpoints": [
             "/validate_upload",
@@ -109,6 +109,20 @@ def _is_nifti_name(filename: str) -> bool:
     return name.endswith(".nii") or name.endswith(".nii.gz") or name.endswith(".gz")
 
 
+def _load_nifti(path: str):
+    """Load NIfTI from a temp path; retry gzip if the extension was only .nii."""
+    try:
+        return nib.load(path)
+    except Exception:
+        gz_path = path + ".gz"
+        try:
+            import shutil
+            shutil.copyfile(path, gz_path)
+            return nib.load(gz_path)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Could not read NIfTI file: {exc}") from exc
+
+
 def _is_mri_modality(modality: Optional[str]) -> bool:
     return modality is None or str(modality).lower() == "mri"
 
@@ -140,8 +154,10 @@ async def validate_upload(
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 tmp.write(raw)
                 path = tmp.name
-            volume = nib.load(path).get_fdata()
-            validate_brain_mri_volume(volume)
+            nii = _load_nifti(path)
+            shape = tuple(int(x) for x in nii.shape)
+            if len(shape) < 3 or min(shape[:3]) < 8:
+                raise HTTPException(status_code=400, detail="NIfTI volume must be 3D.")
         else:
             pil = Image.open(io.BytesIO(raw))
             pil.load()
@@ -158,7 +174,7 @@ async def validate_upload(
             detail=f"Could not read upload ({type(exc).__name__}): {exc}",
         ) from exc
 
-    return {"valid": True, "modality": modality or "mri", "api_version": "formats-v8"}
+    return {"valid": True, "modality": modality or "mri", "api_version": "nifti-v9"}
 
 
 @app.post("/get_slices")
@@ -168,29 +184,20 @@ async def get_slices(
 ):
     filename = (file.filename or "").lower()
     raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty NIfTI upload.")
     suffix = _nifti_suffix(filename)
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(raw)
         path = tmp.name
 
-    try:
-        volume = nib.load(path).get_fdata()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Could not read NIfTI file: {exc}",
-        ) from exc
-
-    if volume.ndim < 3:
+    nii = _load_nifti(path)
+    shape = tuple(int(x) for x in nii.shape)
+    if len(shape) < 3:
         raise HTTPException(status_code=400, detail="NIfTI volume must be 3D.")
 
-    if (modality or "mri").lower() != "xray":
-        try:
-            validate_brain_mri_volume(volume)
-        except ValueError as exc:
-            raise _http_validation_error(exc) from exc
-
-    return {"slices": int(volume.shape[2]), "modality": modality}
+    # Header only — do not load voxel data here (that blocked the slice picker).
+    return {"slices": int(shape[2]), "modality": modality, "shape": list(shape)}
 
 
 @app.post("/predict")

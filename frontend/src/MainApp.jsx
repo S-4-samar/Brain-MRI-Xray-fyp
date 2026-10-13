@@ -635,7 +635,7 @@ export default function App({ modality = "mri", onChangeModality }) {
 
   // ── File handler ─────────────────────────────────────────────────────────
   const isNiftiFile = (name = "") => {
-    const lower = name.toLowerCase();
+    const lower = String(name || "").toLowerCase();
     return lower.endsWith(".nii") || lower.endsWith(".nii.gz") || lower.endsWith(".gz");
   };
 
@@ -643,6 +643,37 @@ export default function App({ modality = "mri", onChangeModality }) {
     if (!f) return;
     setUploadError(null);
     setRunStatus("idle");
+    setResult(null);
+    setPrediction(null);
+    setPredictionStatus("idle");
+
+    // NIfTI: skip 2D photo checks and go straight to slice count (localhost flow).
+    if (isNiftiFile(f.name)) {
+      setFile(f);
+      setFlow("reading-nifti");
+      const formData = new FormData();
+      formData.append("file", f);
+      formData.append("modality", modality);
+      try {
+        const res = await axios.post(`${API_URL}/get_slices`, formData, { timeout: 180000 });
+        const count = Number(res.data?.slices);
+        if (!count || count < 2) {
+          throw new Error("This NIfTI file does not contain a 3D slice stack.");
+        }
+        setTotalSlices(count);
+        setSlice(Math.floor(count / 2));
+        setFlow("slice-select");
+      } catch (err) {
+        setUploadError(
+          getApiErrorMessage(err, "Could not read this NIfTI file. Use MRI mode and a .nii / .nii.gz volume.")
+        );
+        setFile(null);
+        setTotalSlices(null);
+        setFlow("upload");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+      return;
+    }
 
     const validateForm = new FormData();
     validateForm.append("file", f);
@@ -659,9 +690,6 @@ export default function App({ modality = "mri", onChangeModality }) {
         )
       );
       setFile(null);
-      setResult(null);
-      setPrediction(null);
-      setPredictionStatus("idle");
       setTotalSlices(null);
       setFlow("upload");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -669,33 +697,8 @@ export default function App({ modality = "mri", onChangeModality }) {
     }
 
     setFile(f);
-    setResult(null);
-    setPrediction(null);
-    setPredictionStatus("idle");
-
-    if (isNiftiFile(f.name)) {
-      const formData = new FormData();
-      formData.append("file", f);
-      formData.append("modality", modality);
-      try {
-        const res = await axios.post(`${API_URL}/get_slices`, formData, { timeout: 120000 });
-        const count = res.data.slices;
-        setTotalSlices(count);
-        setSlice(Math.floor(count / 2));
-        setFlow("slice-select");
-      } catch (err) {
-        setUploadError(
-          getApiErrorMessage(err, "Could not read this NIfTI file. Use MRI mode and a .nii / .nii.gz volume.")
-        );
-        setFile(null);
-        setTotalSlices(null);
-        setFlow("upload");
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }
-    } else {
-      setTotalSlices(null);
-      setFlow("upload");
-    }
+    setTotalSlices(null);
+    setFlow("upload");
   }, [modality]);
 
   const handleDrop = useCallback(
@@ -826,7 +829,7 @@ export default function App({ modality = "mri", onChangeModality }) {
   };
 
   const statusLabel = {
-    idle: flow === "slice-select" ? "Select a slice" : "Awaiting input",
+    idle: flow === "slice-select" ? "Select a slice" : flow === "reading-nifti" ? "Reading NIfTI…" : "Awaiting input",
     uploading: `Processing — ${progress}%`,
     success: "Analysis complete",
     error: "Connection failed",
@@ -1120,6 +1123,27 @@ export default function App({ modality = "mri", onChangeModality }) {
             </div>
           )}
 
+          {flow === "reading-nifti" && (
+            <div style={{
+              maxWidth: 560, margin: "0 auto 40px",
+              background: Colors.cardBg, border: `1px solid ${Colors.border}`,
+              borderRadius: 14, padding: "36px 28px", textAlign: "center",
+            }}>
+              <span style={{
+                width: 22, height: 22, border: "2px solid rgba(255,255,255,0.2)",
+                borderTop: `2px solid ${Colors.brandPrimary}`, borderRadius: "50%",
+                animation: "spin 0.8s linear infinite", display: "inline-block",
+                marginBottom: 14,
+              }} />
+              <p style={{ fontSize: 15, color: Colors.textPrimary, fontWeight: 500, margin: "0 0 6px" }}>
+                Reading NIfTI volume…
+              </p>
+              <p style={{ fontSize: 12, color: Colors.textSecondary, margin: 0 }}>
+                {file ? file.name : "Loading slices for selection"}
+              </p>
+            </div>
+          )}
+
           {/* ══ FLOW: UPLOAD ══════════════════════════════════════════════════ */}
           {flow === "upload" && (
             <div style={{
@@ -1160,7 +1184,7 @@ export default function App({ modality = "mri", onChangeModality }) {
                   type="file"
                   onChange={(e) => handleFile(e.target.files[0])}
                   style={{ display: "none" }}
-                  accept=".nii,.nii.gz,.gz,.png,.jpg,.jpeg,.dcm,application/octet-stream,image/png,image/jpeg"
+                  accept="*/*,.nii,.nii.gz,.gz,.png,.jpg,.jpeg,.dcm"
                 />
                 {file ? (
                   <>
