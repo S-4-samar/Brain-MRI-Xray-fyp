@@ -17,6 +17,24 @@ def to_base64(img: Image.Image) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
+def to_display_gray(arr: np.ndarray, size: tuple[int, int] | None = None) -> Image.Image:
+    """Percentile-normalize a 2D array to an 8-bit grayscale PIL image."""
+    a = np.asarray(arr, dtype=np.float64)
+    if a.ndim > 2:
+        a = np.squeeze(a)
+        if a.ndim > 2:
+            a = a[:, :, 0]
+    p1, p99 = np.percentile(a, [1, 99])
+    if p99 - p1 < 1e-8:
+        n = np.zeros_like(a)
+    else:
+        n = np.clip((a - p1) / (p99 - p1), 0, 1)
+    img = Image.fromarray((n * 255).astype(np.uint8))
+    if size is not None and img.size != size:
+        img = img.resize(size, Image.Resampling.BILINEAR)
+    return img
+
+
 def _brain_parenchyma_mask(smooth: np.ndarray) -> np.ndarray:
     """Elliptical brain mask — excludes skull/scalp rim where false positives occur."""
     h, w = smooth.shape

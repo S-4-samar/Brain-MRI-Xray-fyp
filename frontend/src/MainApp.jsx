@@ -592,6 +592,12 @@ export default function App({ modality = "mri", onChangeModality }) {
   const [progress, setProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [fullscreenPreview, setFullscreenPreview] = useState(null);
+  const [comparisonOpen, setComparisonOpen] = useState(false);
+  const [realT1ce, setRealT1ce] = useState(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareError, setCompareError] = useState(null);
+  const [compareMetrics, setCompareMetrics] = useState(null);
+  const t1ceInputRef = useRef(null);
   const [explainOpen, setExplainOpen] = useState(false);
   const [prediction, setPrediction] = useState(null);
   const [predictionStatus, setPredictionStatus] = useState("idle"); // idle | loading | success | error
@@ -822,6 +828,30 @@ export default function App({ modality = "mri", onChangeModality }) {
     setTotalSlices(null);
     setSlice(0);
     setFlow("upload");
+    setComparisonOpen(false);
+    setRealT1ce(null);
+    setCompareError(null);
+    setCompareMetrics(null);
+  };
+
+  const handleLoadRealT1ce = async (t1ceFile) => {
+    if (!t1ceFile || !file) return;
+    setCompareLoading(true);
+    setCompareError(null);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("t1ce", t1ceFile);
+    if (isNifti) formData.append("slice_index", slice);
+    try {
+      const res = await axios.post(`${API_URL}/compare_t1ce`, formData, { timeout: 180000 });
+      setRealT1ce(res.data.real_t1ce);
+      setCompareMetrics({ psnr: res.data.psnr, ssim: res.data.ssim });
+    } catch (err) {
+      setCompareError(getApiErrorMessage(err, "Could not load real T1ce. Use the matching *_t1ce.nii at the same slice."));
+      setRealT1ce(null);
+    } finally {
+      setCompareLoading(false);
+    }
   };
 
   const statusLabel = {
@@ -1500,6 +1530,25 @@ export default function App({ modality = "mri", onChangeModality }) {
                 </div>
 
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => { setComparisonOpen(true); setCompareError(null); }}
+                    style={{
+                      background: `${Colors.brandPrimary}`,
+                      border: "none",
+                      color: "#052e16",
+                      padding: "10px 18px",
+                      borderRadius: 8,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      fontFamily: "'DM Sans', sans-serif",
+                      transition: "all 0.2s",
+                      fontWeight: 700,
+                    }}
+                    onMouseEnter={(e) => { e.target.style.opacity = "0.9"; e.target.style.transform = "translateY(-2px)"; }}
+                    onMouseLeave={(e) => { e.target.style.opacity = "1"; e.target.style.transform = "translateY(0)"; }}
+                  >
+                    Comparison
+                  </button>
                   {/* Download all */}
                   <button
                     onClick={downloadAllResults}
@@ -1995,6 +2044,183 @@ export default function App({ modality = "mri", onChangeModality }) {
           </p>
         </footer>
       </div>
+      {comparisonOpen && result && (
+        <div
+          onClick={() => setComparisonOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(2, 6, 23, 0.92)",
+            zIndex: 1900,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            overflowY: "auto",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(96vw, 1280px)",
+              borderRadius: 16,
+              border: `1px solid ${Colors.borderLight}`,
+              background: "rgba(9, 11, 26, 0.96)",
+              boxShadow: "0 28px 80px rgba(0, 0, 0, 0.65)",
+              padding: "28px 24px 24px",
+              position: "relative",
+            }}
+          >
+            <button
+              onClick={() => setComparisonOpen(false)}
+              style={{
+                position: "absolute",
+                top: 14,
+                right: 14,
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                border: `1px solid ${Colors.borderLight}`,
+                background: "rgba(15, 23, 42, 0.85)",
+                color: Colors.textPrimary,
+                fontSize: 20,
+                cursor: "pointer",
+              }}
+              aria-label="Close comparison"
+            >
+              ×
+            </button>
+            <p style={{
+              fontSize: 11,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: Colors.brandPrimary,
+              fontWeight: 700,
+              marginBottom: 8,
+            }}>
+              Virtual Gadolinium
+            </p>
+            <h3 style={{ fontSize: 22, fontWeight: 600, color: Colors.textPrimary, marginBottom: 6 }}>
+              Input | Virtual contrast | Real T1ce
+            </h3>
+            <p style={{ fontSize: 13, color: Colors.textSecondary, marginBottom: 18, maxWidth: 720 }}>
+              Non-contrast input vs AI virtual contrast vs acquired post-gadolinium T1ce.
+              Load the matching <span style={{ fontFamily: "'DM Mono', monospace", color: Colors.brandLight }}>_t1ce.nii</span> from the same BraTS case (same slice).
+            </p>
+            {compareMetrics && (
+              <p style={{ fontSize: 13, color: Colors.textPrimary, marginBottom: 16, fontFamily: "'DM Mono', monospace" }}>
+                vs real T1ce — PSNR {Number(compareMetrics.psnr).toFixed(2)} dB · SSIM {Number(compareMetrics.ssim).toFixed(4)}
+              </p>
+            )}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: 14,
+            }}>
+              {[
+                { img: result.images[0], title: "Input MRI", sub: "Non-contrast" },
+                { img: result.images[1], title: "Virtual contrast", sub: "AI-generated" },
+              ].map((col) => (
+                <div key={col.title} style={{
+                  background: Colors.cardBg,
+                  border: `1px solid ${Colors.border}`,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                }}>
+                  <div style={{ padding: "10px 12px", borderBottom: `1px solid ${Colors.border}` }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: Colors.textPrimary, margin: 0 }}>{col.title}</p>
+                    <p style={{ fontSize: 11, color: Colors.textTertiary, margin: "4px 0 0" }}>{col.sub}</p>
+                  </div>
+                  <div style={{ background: "#000", minHeight: 220, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {col.img ? (
+                      <img alt={col.title} src={`data:image/png;base64,${col.img}`} style={{ width: "100%", maxHeight: 360, objectFit: "contain" }} />
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+              <div style={{
+                background: Colors.cardBg,
+                border: `1px solid ${Colors.border}`,
+                borderRadius: 12,
+                overflow: "hidden",
+              }}>
+                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${Colors.border}` }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: Colors.textPrimary, margin: 0 }}>Real T1ce</p>
+                  <p style={{ fontSize: 11, color: Colors.textTertiary, margin: "4px 0 0" }}>Gadolinium-enhanced</p>
+                </div>
+                <div style={{
+                  background: "#000",
+                  minHeight: 220,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                  gap: 10,
+                  padding: 12,
+                }}>
+                  {compareLoading ? (
+                    <p style={{ color: Colors.textSecondary, fontSize: 13 }}>Loading T1ce slice…</p>
+                  ) : realT1ce ? (
+                    <img alt="Real T1ce" src={`data:image/png;base64,${realT1ce}`} style={{ width: "100%", maxHeight: 360, objectFit: "contain" }} />
+                  ) : (
+                    <>
+                      <p style={{ color: Colors.textSecondary, fontSize: 12, textAlign: "center", lineHeight: 1.5 }}>
+                        No real T1ce loaded yet.
+                      </p>
+                      <button
+                        onClick={() => t1ceInputRef.current && t1ceInputRef.current.click()}
+                        style={{
+                          background: Colors.brandPrimary,
+                          color: "#052e16",
+                          border: "none",
+                          borderRadius: 8,
+                          padding: "8px 14px",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Load real T1ce
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+            {compareError && (
+              <p style={{ color: Colors.errorRed, fontSize: 12, marginTop: 14 }}>{compareError}</p>
+            )}
+            <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <input
+                ref={t1ceInputRef}
+                type="file"
+                accept="*/*,.nii,.nii.gz,.png,.jpg,.jpeg"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files && e.target.files[0];
+                  if (f) handleLoadRealT1ce(f);
+                  e.target.value = "";
+                }}
+              />
+              <button
+                onClick={() => t1ceInputRef.current && t1ceInputRef.current.click()}
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${Colors.borderLight}`,
+                  color: Colors.textPrimary,
+                  borderRadius: 8,
+                  padding: "8px 14px",
+                  fontSize: 12,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                {realT1ce ? "Change T1ce file" : "Load real T1ce"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {fullscreenPreview && (
         <div
           onClick={closeFullscreenPreview}

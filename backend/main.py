@@ -23,6 +23,7 @@ from pipeline import (
     compute_saliency,
     render_pipeline_images,
     to_base64,
+    to_display_gray,
     virtual_contrast,
     compute_psnr_ssim,
 )
@@ -52,6 +53,7 @@ async def root():
             "/get_slices",
             "/predict",
             "/predict_tumor",
+            "/compare_t1ce",
         ],
     }
 
@@ -231,6 +233,35 @@ async def predict(
             "psnr": metrics["psnr"],
             "ssim": metrics["ssim"],
         },
+    }
+
+
+@app.post("/compare_t1ce")
+async def compare_t1ce(
+    file: UploadFile = File(...),
+    t1ce: UploadFile = File(...),
+    slice_index: int = Form(None),
+):
+    """Return input | virtual contrast | real T1ce for the same slice."""
+    try:
+        input_img = await _load_image_from_upload(file, slice_index)
+        real_t1ce = await _load_image_from_upload(t1ce, slice_index)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read comparison files: {exc}") from exc
+
+    pipeline = _run_pipeline(input_img)
+    enhanced = virtual_contrast(pipeline["norm"])
+    target_size = (enhanced.shape[1], enhanced.shape[0])
+    real_disp = to_display_gray(real_t1ce, size=target_size)
+    real_norm = np.array(real_disp).astype(np.float64) / 255.0
+    metrics = compute_psnr_ssim(real_norm, enhanced)
+
+    return {
+        "input": to_base64(to_display_gray(pipeline["norm"])),
+        "virtual": to_base64(to_display_gray(enhanced)),
+        "real_t1ce": to_base64(real_disp),
+        "psnr": metrics["psnr"],
+        "ssim": metrics["ssim"],
     }
 
 
