@@ -26,6 +26,7 @@ from pipeline import (
     to_base64,
 )
 from tumor_prediction import predict_from_segmentation
+from mri_validation import validate_brain_mri_volume, validate_for_modality
 
 app = FastAPI()
 
@@ -43,7 +44,7 @@ async def root():
     return {
         "status": "ok",
         "message": "Brain MRI API is running",
-        "api_version": "permissive-v3",
+        "api_version": "gated-v4",
         "docs": "/docs",
         "endpoints": [
             "/validate_upload",
@@ -99,16 +100,56 @@ def _run_pipeline(image: np.ndarray) -> dict:
     }
 
 
+def _is_nifti_name(filename: str) -> bool:
+    name = (filename or "").lower()
+    return name.endswith(".nii") or name.endswith(".nii.gz") or name.endswith(".gz")
+
+
+def _http_validation_error(exc: Exception) -> HTTPException:
+    return HTTPException(status_code=400, detail=str(exc))
+
+
 @app.post("/validate_upload")
 async def validate_upload(
     file: UploadFile = File(...),
     modality: Optional[str] = Form(None),
     slice_index: Optional[int] = Form(None),
 ):
-    """Compatibility endpoint — always accepts; real work happens in /predict."""
-    # Drain upload so clients don't hang; do not reject based on content heuristics.
-    await file.read()
-    return {"valid": True, "modality": modality or "mri", "api_version": "permissive-v3"}
+    """Reject non-MRI / non-X-Ray photos before analysis."""
+    filename = (file.filename or "").lower()
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Empty file uploaded.")
+
+    try:
+        if _is_nifti_name(filename):
+            if (modality or "mri").lower() == "xray":
+                raise HTTPException(
+                    status_code=400,
+                    detail="NIfTI volumes are for MRI. Switch to MRI modality or upload a 2D X-Ray image.",
+                )
+            suffix = _nifti_suffix(filename)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(raw)
+                path = tmp.name
+            volume = nib.load(path).get_fdata()
+            validate_brain_mri_volume(volume)
+        else:
+            pil = Image.open(io.BytesIO(raw))
+            pil.load()
+            image = np.array(pil.convert("RGB") if pil.mode in ("RGB", "RGBA") else pil.convert("L"))
+            validate_for_modality(image, modality)
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise _http_validation_error(exc) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not read upload ({type(exc).__name__}): {exc}",
+        ) from exc
+
+    return {"valid": True, "modality": modality or "mri", "api_version": "gated-v4"}
 
 
 @app.post("/get_slices")
@@ -134,6 +175,12 @@ async def get_slices(
     if volume.ndim < 3:
         raise HTTPException(status_code=400, detail="NIfTI volume must be 3D.")
 
+    if (modality or "mri").lower() != "xray":
+        try:
+            validate_brain_mri_volume(volume)
+        except ValueError as exc:
+            raise _http_validation_error(exc) from exc
+
     return {"slices": int(volume.shape[2]), "modality": modality}
 
 
@@ -145,6 +192,11 @@ async def predict(
 ):
     try:
         image = await _load_image_from_upload(file, slice_index)
+        validate_for_modality(image, modality)
+    except ValueError as exc:
+        raise _http_validation_error(exc) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Could not read upload: {exc}") from exc
 
@@ -173,6 +225,11 @@ async def predict_tumor(
     """
     try:
         image = await _load_image_from_upload(file, slice_index)
+        validate_for_modality(image, modality)
+    except ValueError as exc:
+        raise _http_validation_error(exc) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Could not read upload: {exc}") from exc
 

@@ -639,7 +639,30 @@ export default function App({ modality = "mri", onChangeModality }) {
     setUploadError(null);
     setRunStatus("idle");
 
-    // Skip remote pre-validation — accept file locally; /predict handles read errors.
+    const validateForm = new FormData();
+    validateForm.append("file", f);
+    validateForm.append("modality", modality);
+    try {
+      await axios.post(`${API_URL}/validate_upload`, validateForm);
+    } catch (err) {
+      setUploadError(
+        getApiErrorMessage(
+          err,
+          modality === "xray"
+            ? "This image is not an X-Ray. Please upload a medical X-Ray."
+            : "This image is not a brain MRI. Please upload a brain MRI scan."
+        )
+      );
+      setFile(null);
+      setResult(null);
+      setPrediction(null);
+      setPredictionStatus("idle");
+      setTotalSlices(null);
+      setFlow("upload");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setFile(f);
     setResult(null);
     setPrediction(null);
@@ -1083,7 +1106,7 @@ export default function App({ modality = "mri", onChangeModality }) {
               </svg>
               <div>
                 <p style={{ fontSize: 13, color: Colors.errorRed, fontWeight: 500, marginBottom: 2 }}>
-                  Upload Error
+                  {modality === "mri" ? "Invalid MRI Input" : "Invalid X-Ray Input"}
                 </p>
                 <p style={{ fontSize: 12, color: Colors.textSecondary, margin: 0 }}>
                   {uploadError}
