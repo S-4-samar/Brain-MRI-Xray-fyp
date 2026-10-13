@@ -17,20 +17,17 @@ import nibabel as nib
 from PIL import Image
 import io
 import tempfile
-import random
 
 from pipeline import (
     preprocess_and_segment,
     compute_saliency,
     render_pipeline_images,
     to_base64,
+    virtual_contrast,
+    compute_psnr_ssim,
 )
 from tumor_prediction import predict_from_segmentation
-from mri_validation import (
-    validate_brain_mri,
-    validate_brain_mri_volume,
-    validate_for_modality,
-)
+from mri_validation import validate_for_modality
 
 app = FastAPI()
 
@@ -48,7 +45,7 @@ async def root():
     return {
         "status": "ok",
         "message": "Brain MRI API is running",
-        "api_version": "nifti-v10",
+        "api_version": "nifti-v11",
         "docs": "/docs",
         "endpoints": [
             "/validate_upload",
@@ -224,14 +221,15 @@ async def predict(
         raise HTTPException(status_code=400, detail=f"Could not read upload: {exc}") from exc
 
     pipeline = _run_pipeline(image)
-
-    confidence_score = round(random.uniform(90.01, 94.99), 2)
+    enhanced = virtual_contrast(pipeline["norm"])
+    metrics = compute_psnr_ssim(pipeline["norm"], enhanced)
 
     return {
         "images": [to_base64(img) for img in pipeline["images"]],
         "metadata": {
             "modality": modality,
-            "confidence_score": confidence_score,
+            "psnr": metrics["psnr"],
+            "ssim": metrics["ssim"],
         },
     }
 

@@ -724,11 +724,7 @@ export default function App({ modality = "mri", onChangeModality }) {
       });
       const data = res.data;
       const meta = data.metadata || {};
-      const conf =
-        typeof meta.confidence_score === "number"
-          ? meta.confidence_score
-          : Math.round((90.01 + Math.random() * 4.98) * 100) / 100;
-      setResult({ ...data, metadata: { ...meta, confidence_score: conf } });
+      setResult({ ...data, metadata: meta });
       setRunStatus("success");
       setFlow("results");
     } catch (err) {
@@ -1415,43 +1411,90 @@ export default function App({ modality = "mri", onChangeModality }) {
                   <h2 style={{ fontSize: 22, fontWeight: 500, color: Colors.textPrimary, letterSpacing: "-0.01em" }}>
                     Segmentation Results
                   </h2>
-                  {result.metadata?.confidence_score != null && (
+                  {(result.metadata?.psnr != null || result.metadata?.ssim != null) && (
                     <div
                       style={{
                         marginTop: 14,
                         display: "inline-flex",
                         alignItems: "center",
-                        gap: 10,
-                        padding: "10px 16px",
-                        borderRadius: 10,
-                        border: `1px solid ${Colors.brandPrimary}44`,
-                        background: `${Colors.brandPrimary}12`,
-                        width: "fit-content",
+                        gap: 12,
+                        flexWrap: "wrap",
                       }}
                     >
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontFamily: "'DM Mono', monospace",
-                          letterSpacing: "0.12em",
-                          textTransform: "uppercase",
-                          color: Colors.textTertiary,
-                          fontWeight: 600,
-                        }}
-                      >
-                        Confidence
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 20,
-                          fontWeight: 700,
-                          fontFamily: "'DM Mono', monospace",
-                          color: Colors.brandLight,
-                          letterSpacing: "-0.02em",
-                        }}
-                      >
-                        {result.metadata.confidence_score.toFixed(2)}%
-                      </span>
+                      {result.metadata?.psnr != null && (
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "10px 16px",
+                            borderRadius: 10,
+                            border: `1px solid ${Colors.brandPrimary}44`,
+                            background: `${Colors.brandPrimary}12`,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontFamily: "'DM Mono', monospace",
+                              letterSpacing: "0.12em",
+                              textTransform: "uppercase",
+                              color: Colors.textTertiary,
+                              fontWeight: 600,
+                            }}
+                          >
+                            Peak Signal-to-Noise Ratio
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 20,
+                              fontWeight: 700,
+                              fontFamily: "'DM Mono', monospace",
+                              color: Colors.brandLight,
+                              letterSpacing: "-0.02em",
+                            }}
+                          >
+                            {Number(result.metadata.psnr).toFixed(2)} dB
+                          </span>
+                        </div>
+                      )}
+                      {result.metadata?.ssim != null && (
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 10,
+                            padding: "10px 16px",
+                            borderRadius: 10,
+                            border: `1px solid ${Colors.brandPrimary}44`,
+                            background: `${Colors.brandPrimary}12`,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontFamily: "'DM Mono', monospace",
+                              letterSpacing: "0.12em",
+                              textTransform: "uppercase",
+                              color: Colors.textTertiary,
+                              fontWeight: 600,
+                            }}
+                          >
+                            Structural Similarity (SSIM)
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 20,
+                              fontWeight: 700,
+                              fontFamily: "'DM Mono', monospace",
+                              color: Colors.brandLight,
+                              letterSpacing: "-0.02em",
+                            }}
+                          >
+                            {Number(result.metadata.ssim).toFixed(4)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
