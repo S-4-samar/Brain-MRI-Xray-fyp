@@ -26,7 +26,11 @@ from pipeline import (
     to_base64,
 )
 from tumor_prediction import predict_from_segmentation
-from mri_validation import validate_brain_mri_volume, validate_for_modality
+from mri_validation import (
+    validate_brain_mri,
+    validate_brain_mri_volume,
+    validate_for_modality,
+)
 
 app = FastAPI()
 
@@ -44,7 +48,7 @@ async def root():
     return {
         "status": "ok",
         "message": "Brain MRI API is running",
-        "api_version": "gated-v5",
+        "api_version": "localhost-v6",
         "docs": "/docs",
         "endpoints": [
             "/validate_upload",
@@ -105,6 +109,10 @@ def _is_nifti_name(filename: str) -> bool:
     return name.endswith(".nii") or name.endswith(".nii.gz") or name.endswith(".gz")
 
 
+def _is_mri_modality(modality: Optional[str]) -> bool:
+    return modality is None or str(modality).lower() == "mri"
+
+
 def _http_validation_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=400, detail=str(exc))
 
@@ -115,7 +123,7 @@ async def validate_upload(
     modality: Optional[str] = Form(None),
     slice_index: Optional[int] = Form(None),
 ):
-    """Reject non-MRI / non-X-Ray photos before analysis."""
+    """Same MRI heuristics as local; X-Ray only rejects color photos."""
     filename = (file.filename or "").lower()
     raw = await file.read()
     if not raw:
@@ -123,7 +131,7 @@ async def validate_upload(
 
     try:
         if _is_nifti_name(filename):
-            if (modality or "mri").lower() == "xray":
+            if not _is_mri_modality(modality):
                 raise HTTPException(
                     status_code=400,
                     detail="NIfTI volumes are for MRI. Switch to MRI modality or upload a 2D X-Ray image.",
@@ -137,8 +145,13 @@ async def validate_upload(
         else:
             pil = Image.open(io.BytesIO(raw))
             pil.load()
-            image = np.array(pil.convert("RGB") if pil.mode in ("RGB", "RGBA") else pil.convert("L"))
-            validate_for_modality(image, modality)
+            if _is_mri_modality(modality):
+                # Match localhost: grayscale first, then original MRI heuristics.
+                image = np.array(pil.convert("L"))
+                validate_brain_mri(image)
+            else:
+                image = np.array(pil.convert("RGB") if pil.mode in ("RGB", "RGBA") else pil.convert("L"))
+                validate_for_modality(image, modality)
     except HTTPException:
         raise
     except ValueError as exc:
@@ -149,7 +162,7 @@ async def validate_upload(
             detail=f"Could not read upload ({type(exc).__name__}): {exc}",
         ) from exc
 
-    return {"valid": True, "modality": modality or "mri", "api_version": "gated-v5"}
+    return {"valid": True, "modality": modality or "mri", "api_version": "localhost-v6"}
 
 
 @app.post("/get_slices")
@@ -192,7 +205,10 @@ async def predict(
 ):
     try:
         image = await _load_image_from_upload(file, slice_index)
-        validate_for_modality(image, modality)
+        if _is_mri_modality(modality):
+            validate_brain_mri(image)
+        else:
+            validate_for_modality(image, modality)
     except ValueError as exc:
         raise _http_validation_error(exc) from exc
     except HTTPException:
@@ -225,7 +241,10 @@ async def predict_tumor(
     """
     try:
         image = await _load_image_from_upload(file, slice_index)
-        validate_for_modality(image, modality)
+        if _is_mri_modality(modality):
+            validate_brain_mri(image)
+        else:
+            validate_for_modality(image, modality)
     except ValueError as exc:
         raise _http_validation_error(exc) from exc
     except HTTPException:
