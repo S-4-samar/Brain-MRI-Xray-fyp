@@ -634,27 +634,7 @@ export default function App({ modality = "mri", onChangeModality }) {
     setUploadError(null);
     setRunStatus("idle");
 
-    if (modality === "mri") {
-      const validateForm = new FormData();
-      validateForm.append("file", f);
-      validateForm.append("modality", modality);
-      try {
-        await axios.post(`${API_URL}/validate_upload`, validateForm);
-      } catch (err) {
-        setUploadError(
-          getApiErrorMessage(err, "Upload validation failed. Please try another file.")
-        );
-        setFile(null);
-        setResult(null);
-        setPrediction(null);
-        setPredictionStatus("idle");
-        setTotalSlices(null);
-        setFlow("upload");
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-    }
-
+    // Skip remote pre-validation — accept file locally; /predict handles read errors.
     setFile(f);
     setResult(null);
     setPrediction(null);

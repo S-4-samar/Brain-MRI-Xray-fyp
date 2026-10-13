@@ -26,7 +26,6 @@ from pipeline import (
     to_base64,
 )
 from tumor_prediction import predict_from_segmentation
-from mri_validation import validate_brain_mri, validate_brain_mri_volume
 
 app = FastAPI()
 
@@ -44,6 +43,7 @@ async def root():
     return {
         "status": "ok",
         "message": "Brain MRI API is running",
+        "api_version": "permissive-v3",
         "docs": "/docs",
         "endpoints": [
             "/validate_upload",
@@ -52,14 +52,6 @@ async def root():
             "/predict_tumor",
         ],
     }
-
-
-def _is_mri_modality(modality: Optional[str]) -> bool:
-    return modality is None or str(modality).lower() == "mri"
-
-
-def _mri_validation_error(exc: ValueError) -> HTTPException:
-    return HTTPException(status_code=400, detail=str(exc))
 
 
 def _nifti_suffix(filename: str) -> str:
@@ -113,39 +105,10 @@ async def validate_upload(
     modality: Optional[str] = Form(None),
     slice_index: Optional[int] = Form(None),
 ):
-    """Accept any readable image/volume. X-Ray skips checks entirely."""
-    if not _is_mri_modality(modality):
-        return {"valid": True, "modality": modality}
-
-    filename = (file.filename or "").lower()
-    raw = await file.read()
-    if not raw:
-        raise HTTPException(status_code=400, detail="Empty file uploaded.")
-
-    try:
-        if filename.endswith(".nii") or filename.endswith(".gz"):
-            suffix = _nifti_suffix(filename)
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                tmp.write(raw)
-                path = tmp.name
-            volume = nib.load(path).get_fdata()
-            validate_brain_mri_volume(volume)
-        else:
-            pil = Image.open(io.BytesIO(raw))
-            pil.load()
-            image = np.array(pil.convert("L"))
-            validate_brain_mri(image)
-    except HTTPException:
-        raise
-    except ValueError as exc:
-        raise _mri_validation_error(exc) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Could not read upload ({type(exc).__name__}): {exc}",
-        ) from exc
-
-    return {"valid": True, "modality": modality or "mri"}
+    """Compatibility endpoint — always accepts; real work happens in /predict."""
+    # Drain upload so clients don't hang; do not reject based on content heuristics.
+    await file.read()
+    return {"valid": True, "modality": modality or "mri", "api_version": "permissive-v3"}
 
 
 @app.post("/get_slices")
