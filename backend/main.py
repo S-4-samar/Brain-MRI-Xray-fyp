@@ -48,7 +48,7 @@ async def root():
     return {
         "status": "ok",
         "message": "Brain MRI API is running",
-        "api_version": "nifti-v9",
+        "api_version": "nifti-v10",
         "docs": "/docs",
         "endpoints": [
             "/validate_upload",
@@ -70,19 +70,24 @@ async def _load_image_from_upload(file: UploadFile, slice_index: Optional[int]) 
     filename = file.filename or "upload.bin"
     raw = await file.read()
 
-    if filename.lower().endswith((".nii", ".nii.gz", ".gz")):
+    if _is_nifti_name(filename):
         suffix = _nifti_suffix(filename)
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(raw)
             path = tmp.name
 
-        nii = nib.load(path)
-        volume = nii.get_fdata()
-
-        if slice_index is None:
-            slice_index = volume.shape[2] // 2
-
-        return volume[:, :, slice_index]
+        nii = _load_nifti(path)
+        shape = nii.shape
+        zdim = int(shape[2]) if len(shape) >= 3 else 1
+        z = int(slice_index) if slice_index is not None else zdim // 2
+        z = max(0, min(z, max(zdim - 1, 0)))
+        # Read one slice only — get_fdata() of the full volume is what made Railway so slow.
+        sl = np.asanyarray(nii.dataobj[:, :, z])
+        if sl.ndim > 2:
+            sl = np.squeeze(sl)
+            if sl.ndim > 2:
+                sl = sl[:, :, 0]
+        return sl.astype(np.float64, copy=False)
 
     image = Image.open(io.BytesIO(raw)).convert("L")
     return np.array(image)
@@ -174,7 +179,7 @@ async def validate_upload(
             detail=f"Could not read upload ({type(exc).__name__}): {exc}",
         ) from exc
 
-    return {"valid": True, "modality": modality or "mri", "api_version": "nifti-v9"}
+    return {"valid": True, "modality": modality or "mri", "api_version": "nifti-v10"}
 
 
 @app.post("/get_slices")
@@ -208,9 +213,8 @@ async def predict(
 ):
     try:
         image = await _load_image_from_upload(file, slice_index)
-        if _is_mri_modality(modality):
-            validate_brain_mri(image)
-        else:
+        # NIfTI volumes are already medical files — do not run 2D photo heuristics.
+        if not _is_nifti_name(file.filename or ""):
             validate_for_modality(image, modality)
     except ValueError as exc:
         raise _http_validation_error(exc) from exc
@@ -244,9 +248,7 @@ async def predict_tumor(
     """
     try:
         image = await _load_image_from_upload(file, slice_index)
-        if _is_mri_modality(modality):
-            validate_brain_mri(image)
-        else:
+        if not _is_nifti_name(file.filename or ""):
             validate_for_modality(image, modality)
     except ValueError as exc:
         raise _http_validation_error(exc) from exc
