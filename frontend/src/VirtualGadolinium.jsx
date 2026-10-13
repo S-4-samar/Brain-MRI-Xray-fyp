@@ -201,7 +201,6 @@ function NavLogo() {
 
 function Navbar({ onRequestAccess }) {
   const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -272,7 +271,6 @@ function Navbar({ onRequestAccess }) {
 }
 
 function Hero({ onRequestAccess }) {
-  const ref0 = useRef(null);
   useEffect(() => {
     setTimeout(() => { document.querySelectorAll("#hero .vg-fade-in").forEach(el => el.classList.add("visible")); }, 100);
   }, []);

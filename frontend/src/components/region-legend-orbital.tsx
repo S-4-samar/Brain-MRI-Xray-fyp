@@ -41,7 +41,3 @@ export function RegionLegendOrbitals() {
     <RadialOrbitalTimeline timelineData={tumorRegionData} />
   );
 }
-
-export default {
-  RegionLegendOrbitals,
-};
