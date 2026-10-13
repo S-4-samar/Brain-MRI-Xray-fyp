@@ -76,73 +76,65 @@ def preprocess_and_segment(image: np.ndarray) -> dict:
 
 def virtual_contrast(norm: np.ndarray) -> np.ndarray:
     """
-    Radiology-style virtual T1ce: keep a clean MRI look, make the mass enhance
-    (bright core + rim) so the tumor is more conspicuous, not noisier.
+    Virtual T1ce the way a radiologist reads it:
+    same anatomy, clean tissue, mass lights up (gadolinium-like uptake + rim).
+    No CLAHE noise — the lesion must stay the brightest object.
     """
     img = np.clip(np.asarray(norm, dtype=np.float64), 0, 1)
     if img.size == 0:
         return img
 
     brain = _brain_parenchyma_mask(gaussian_filter(img, 1.0))
-    # Preserve SNR — light denoise, light local contrast, light sharpen
-    base = gaussian_filter(img, 0.35)
-    mu = gaussian_filter(base, 8.0)
-    var = np.maximum(gaussian_filter(base * base, 8.0) - mu * mu, 0.0)
-    std = np.sqrt(var)
-    tissue = np.clip(base + 0.32 * np.tanh((base - mu) / (std + 0.12)), 0, 1)
-    tissue = np.clip(tissue + 0.38 * (tissue - gaussian_filter(tissue, 0.85)), 0, 1)
-    out = tissue.copy()
+    base = gaussian_filter(img, 0.45)
 
     if brain.any():
-        vals = base[brain]
-        thr = float(np.percentile(vals, 93.0))
+        lo, hi = np.percentile(base[brain], [6, 97])
+        tissue = np.clip((base - lo) / (hi - lo + 1e-6), 0, 1)
+    else:
+        tissue = base.copy()
+
+    # Mild edge crispness only — still looks like an MRI, not a filter
+    tissue = np.clip(tissue + 0.22 * (tissue - gaussian_filter(tissue, 0.7)), 0, 1)
+    # Slightly darker parenchyma so enhancement can pop
+    out = np.clip(tissue * 0.88, 0, 1)
+
+    if brain.any():
+        thr = float(np.percentile(base[brain], 88.5))
         seed = brain & (base >= thr)
         seed = binary_opening(seed, iterations=1)
         seed = binary_closing(seed, iterations=2)
 
         labeled, nlab = label(seed)
         keep = np.zeros_like(seed, dtype=bool)
-        brain_n = int(brain.sum())
-        blobs = sorted(
-            ((int((labeled == i).sum()), i) for i in range(1, nlab + 1)),
-            reverse=True,
-        )
-        taken = 0
-        for size, idx in blobs:
-            if size < 18:
-                continue
-            if brain_n and size > 0.16 * brain_n:
-                continue
-            keep |= labeled == idx
-            taken += 1
-            if taken >= 2:
-                break
-        if not keep.any() and blobs:
-            keep = labeled == blobs[0][1]
+        if nlab:
+            sizes = [(int((labeled == i).sum()), i) for i in range(1, nlab + 1)]
+            sizes.sort(reverse=True)
+            # Always keep the largest hyperintense mass (tumor), even if big.
+            keep |= labeled == sizes[0][1]
+            for size, idx in sizes[1:3]:
+                if size >= 40:
+                    keep |= labeled == idx
 
         core = keep
-        rim = binary_dilation(core, iterations=3) & ~core & brain
-        peri = binary_dilation(core, iterations=7) & ~core & ~rim & brain
+        rim = binary_dilation(core, iterations=2) & ~core & brain
+        peri = binary_dilation(core, iterations=6) & ~core & ~rim & brain
 
-        # Quiet surrounding edema a little (T1ce vs FLAIR/T2)
-        out = np.clip(out * (1.0 - 0.16 * peri.astype(np.float64)), 0, 1)
+        # Surrounding edema less loud (T1ce vs T2/FLAIR)
+        out = np.clip(out * (1.0 - 0.22 * peri.astype(np.float64)), 0, 1)
 
-        core_w = gaussian_filter(core.astype(np.float64), 0.9)
-        rim_w = gaussian_filter(rim.astype(np.float64), 0.7)
-        # Enhancing core: near-white uptake
-        out = np.clip(out + 0.62 * core_w, 0, 1)
-        out = np.where(core, np.clip(np.maximum(out, 0.88), 0, 1), out)
-        # Thin enhancing rim — classic post-gadolinium look
-        out = np.clip(out + 0.38 * rim_w, 0, 1)
+        core_w = gaussian_filter(core.astype(np.float64), 1.05)
+        rim_w = gaussian_filter(rim.astype(np.float64), 0.75)
+        # Solid white uptake in the mass
+        out = np.clip(out * (1.0 - 0.55 * core_w) + 0.98 * core_w, 0, 1)
+        out = np.where(core, np.maximum(out, 0.93), out)
+        # Thin bright rim
+        out = np.clip(out + 0.28 * rim_w, 0, 1)
 
-        h, w = img.shape
-        cy, cx = h / 2.0, w / 2.0
-        y, x = np.ogrid[:h, :w]
-        midline = ((y - cy) / (h * 0.20)) ** 2 + ((x - cx) / (w * 0.16)) ** 2 <= 1.0
-        csf = brain & midline & (base > float(np.percentile(vals, 72))) & ~core & ~rim
-        out = np.where(csf, out * 0.58, out)
+        # Ventricles / CSF stay dark
+        csf_cut = float(np.percentile(base[brain], 18))
+        out = np.where(brain & (base <= csf_cut) & ~core, out * 0.55, out)
 
-    out = np.where(img < 0.05, img * 0.45, out)
+    out = np.where(img < 0.045, img * 0.28, out)
     return np.clip(out, 0, 1)
 
 
