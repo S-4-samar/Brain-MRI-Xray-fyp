@@ -48,7 +48,7 @@ async def root():
     return {
         "status": "ok",
         "message": "Brain MRI API is running",
-        "api_version": "localhost-v6",
+        "api_version": "gated-v7",
         "docs": "/docs",
         "endpoints": [
             "/validate_upload",
@@ -145,13 +145,9 @@ async def validate_upload(
         else:
             pil = Image.open(io.BytesIO(raw))
             pil.load()
-            if _is_mri_modality(modality):
-                # Match localhost: grayscale first, then original MRI heuristics.
-                image = np.array(pil.convert("L"))
-                validate_brain_mri(image)
-            else:
-                image = np.array(pil.convert("RGB") if pil.mode in ("RGB", "RGBA") else pil.convert("L"))
-                validate_for_modality(image, modality)
+            # Keep RGB so portraits/pets fail the color check; MRI is grayscale.
+            image = np.array(pil.convert("RGB") if pil.mode in ("RGB", "RGBA") else pil.convert("L"))
+            validate_for_modality(image, modality)
     except HTTPException:
         raise
     except ValueError as exc:
@@ -162,7 +158,7 @@ async def validate_upload(
             detail=f"Could not read upload ({type(exc).__name__}): {exc}",
         ) from exc
 
-    return {"valid": True, "modality": modality or "mri", "api_version": "localhost-v6"}
+    return {"valid": True, "modality": modality or "mri", "api_version": "gated-v7"}
 
 
 @app.post("/get_slices")
