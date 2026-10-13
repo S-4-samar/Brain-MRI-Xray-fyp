@@ -255,10 +255,11 @@ async def compare_t1ce(
     real_disp = to_display_gray(real_t1ce, size=target_size)
     real_norm = np.array(real_disp).astype(np.float64) / 255.0
     metrics = compute_psnr_ssim(real_norm, enhanced)
+    input_display = np.clip(np.power(pipeline["norm"], 1.22) * 0.82, 0, 1)
 
     return {
-        "input": to_base64(to_display_gray(pipeline["norm"])),
-        "virtual": to_base64(to_display_gray(enhanced)),
+        "input": to_base64(Image.fromarray((input_display * 255).astype(np.uint8))),
+        "virtual": to_base64(Image.fromarray((enhanced * 255).astype(np.uint8))),
         "real_t1ce": to_base64(real_disp),
         "psnr": metrics["psnr"],
         "ssim": metrics["ssim"],

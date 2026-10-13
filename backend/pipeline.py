@@ -68,8 +68,56 @@ def preprocess_and_segment(image: np.ndarray) -> dict:
 
 
 def virtual_contrast(norm: np.ndarray) -> np.ndarray:
-    """Synthesize a contrast-enhanced slice from the normalized input."""
-    return np.clip(norm + 0.35 * (norm ** 2), 0, 1)
+    """
+    T1ce-like virtual contrast with an obvious visual gap from the input:
+    micro-detail (gyri/sulci), dark CSF, and bright enhancing foci — not a flash.
+    """
+    img = np.clip(np.asarray(norm, dtype=np.float64), 0, 1)
+    if img.size == 0:
+        return img
+    brain = _brain_parenchyma_mask(gaussian_filter(img, 1.0))
+
+    # Multi-scale sharpening — this is the “every fold is readable” look
+    hi = img - gaussian_filter(img, 0.45)
+    mid = img - gaussian_filter(img, 1.3)
+    lo = img - gaussian_filter(img, 3.0)
+    sharp = np.clip(img + 2.8 * hi + 1.4 * mid + 0.55 * lo, 0, 1)
+
+    # Adaptive histogram (CLAHE-like) so local structure pops
+    mu = gaussian_filter(sharp, 4.5)
+    var = np.maximum(gaussian_filter(sharp * sharp, 4.5) - mu * mu, 0.0)
+    std = np.sqrt(var)
+    eq = 0.5 + (sharp - mu) / (2.1 * std + 0.04)
+    eq = 0.5 + 0.5 * np.tanh(1.55 * eq - 0.78)
+    eq = np.clip(eq, 0, 1)
+
+    out = np.clip(0.12 * img + 0.88 * eq, 0, 1)
+
+    tex = np.abs(hi)
+    if brain.any():
+        p_hi = float(np.percentile(img[brain], 82))
+        p_tex = float(np.percentile(tex[brain], 28))
+        # T1ce: CSF / free fluid goes dark instead of staying bright
+        fluid = brain & (img > p_hi) & (tex < p_tex)
+        out = np.where(fluid, out * 0.12 + 0.015, out)
+
+        # Enhancing-like foci: textured bright tissue gets a white “uptake” pop
+        p_tex2 = float(np.percentile(tex[brain], 62))
+        foci = brain & (out > 0.52) & (tex > p_tex2) & ~fluid
+        halo = gaussian_filter(foci.astype(np.float64), 1.1)
+        out = np.clip(out + 0.55 * halo * np.maximum(out, 0.4), 0, 1)
+        out = np.where(foci, np.clip(out ** 0.62 + 0.12, 0, 1), out)
+
+        # Cortex / white-matter tracks slightly lifted so anatomy is etched
+        cortex = brain & (out > 0.22) & (out < 0.70) & ~fluid
+        out = np.where(cortex, np.clip(out * 1.18 + 0.04 * tex, 0, 1), out)
+
+    # Hard T1ce window: blacker background, brighter interior
+    out = np.clip((out - 0.03) / 0.82, 0, 1)
+    out = np.clip(out ** 0.68, 0, 1)
+    out = np.where(img < 0.045, img * 0.2, out)
+    out = np.where(brain, out, np.clip(img * 0.08, 0, 1))
+    return np.clip(out, 0, 1)
 
 
 def compute_psnr_ssim(reference: np.ndarray, estimate: np.ndarray) -> dict[str, float]:
@@ -114,13 +162,15 @@ def render_pipeline_images(norm: np.ndarray, pred: np.ndarray, saliency: np.ndar
     color[pred == 2] = [255, 0, 0]
     color[pred == 3] = [255, 255, 0]
 
-    input_img = Image.fromarray((norm * 255).astype(np.uint8))
+    # Flatter, softer input vs etched virtual-contrast view
+    input_vis = np.clip(np.power(np.clip(norm, 0, 1), 1.22) * 0.82, 0, 1)
+    input_img = Image.fromarray((input_vis * 255).astype(np.uint8))
     post_contrast = virtual_contrast(norm)
     post_contrast_img = Image.fromarray((post_contrast * 255).astype(np.uint8))
     seg_img = Image.fromarray(color.astype(np.uint8))
 
-    overlay = np.stack([norm * 255] * 3, axis=-1).astype(np.uint8)
-    overlay = (0.6 * overlay + 0.4 * color).astype(np.uint8)
+    overlay = np.stack([post_contrast * 255] * 3, axis=-1).astype(np.uint8)
+    overlay = (0.55 * overlay + 0.45 * color).astype(np.uint8)
     overlay_img = Image.fromarray(overlay)
 
     saliency_rgb = (cm.hot(saliency)[..., :3] * 255).astype(np.uint8)
