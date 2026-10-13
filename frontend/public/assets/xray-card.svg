@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 420" fill="none">
+  <defs>
+    <linearGradient id="xrBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0c18"/>
+      <stop offset="100%" stop-color="#12152a"/>
+    </linearGradient>
+    <radialGradient id="xrGlow" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.35"/>
+      <stop offset="70%" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="560" height="420" fill="url(#xrBg)"/>
+  <ellipse cx="280" cy="160" rx="220" ry="200" fill="url(#xrGlow)"/>
+  <!-- Stylized thorax / ribs -->
+  <g opacity="0.92">
+    <ellipse cx="280" cy="175" rx="118" ry="145" stroke="#c4b5fd" stroke-width="2" fill="rgba(167,139,250,0.08)"/>
+    <path d="M182 120 Q280 95 378 120" stroke="#a78bfa" stroke-width="1.5" fill="none" opacity="0.7"/>
+    <path d="M175 155 Q280 130 385 155" stroke="#9d5cf4" stroke-width="1.2" fill="none" opacity="0.55"/>
+    <path d="M168 190 Q280 165 392 190" stroke="#9d5cf4" stroke-width="1.2" fill="none" opacity="0.55"/>
+    <path d="M175 225 Q280 200 385 225" stroke="#a78bfa" stroke-width="1.2" fill="none" opacity="0.5"/>
+    <path d="M188 260 Q280 235 372 260" stroke="#a78bfa" stroke-width="1" fill="none" opacity="0.45"/>
+    <!-- Spine -->
+    <rect x="268" y="105" width="24" height="190" rx="6" fill="rgba(124,58,237,0.25)" stroke="#7c3aed" stroke-width="1.2"/>
+    <!-- Clavicles hint -->
+    <path d="M210 118 L280 132 L350 118" stroke="#c4b5fd" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
+  </g>
+  <text x="280" y="360" text-anchor="middle" fill="#9892b8" font-family="system-ui,sans-serif" font-size="14" letter-spacing="0.2em">X-RAY · REPRESENTATIVE</text>
+</svg>
