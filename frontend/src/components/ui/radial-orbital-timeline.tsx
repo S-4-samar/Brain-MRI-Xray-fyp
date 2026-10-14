@@ -26,7 +26,7 @@ export default function RadialOrbitalTimeline({
   timelineData,
 }: RadialOrbitalTimelineProps) {
   const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>(
-    {}
+    {},
   );
   const [viewMode] = useState<"orbital">("orbital");
   const [rotationAngle, setRotationAngle] = useState<number>(0);
@@ -123,7 +123,7 @@ export default function RadialOrbitalTimeline({
     const zIndex = Math.round(100 + 50 * Math.cos(radian));
     const opacity = Math.max(
       0.5,
-      Math.min(1, 0.5 + 0.5 * ((1 + Math.sin(radian)) / 2))
+      Math.min(1, 0.5 + 0.5 * ((1 + Math.sin(radian)) / 2)),
     );
 
     return { x, y, angle, zIndex, opacity };
@@ -170,9 +170,18 @@ export default function RadialOrbitalTimeline({
           }}
         >
           {/* SVG Background with gradient orbit and stars */}
-          <svg className="absolute w-full h-full" style={{ filter: "drop-shadow(0 0 30px rgba(59, 130, 246, 0.4))" }}>
+          <svg
+            className="absolute w-full h-full"
+            style={{ filter: "drop-shadow(0 0 30px rgba(59, 130, 246, 0.4))" }}
+          >
             <defs>
-              <linearGradient id="orbitGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <linearGradient
+                id="orbitGradient"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%"
+              >
                 <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.8" />
                 <stop offset="50%" stopColor="#a855f7" stopOpacity="0.6" />
                 <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.8" />
@@ -230,25 +239,68 @@ export default function RadialOrbitalTimeline({
             <circle cx="95%" cy="50%" r="1" fill="#f3e8ff" className="star" />
 
             {/* Moon emoji in corner */}
-            <text x="94%" y="12%" fontSize="40" fill="#f5f3ff" textAnchor="middle" filter="drop-shadow(0 0 20px rgba(200, 150, 255, 0.7))" style={{ fontFamily: "Arial, sans-serif" }}>
+            <text
+              x="94%"
+              y="12%"
+              fontSize="40"
+              fill="#f5f3ff"
+              textAnchor="middle"
+              filter="drop-shadow(0 0 20px rgba(200, 150, 255, 0.7))"
+              style={{ fontFamily: "Arial, sans-serif" }}
+            >
               🌙
             </text>
 
-            <circle cx="50%" cy="50%" r="96" fill="none" stroke="url(#orbitGradient)" strokeWidth="3" opacity="0.9" filter="url(#glow)" />
-            <circle cx="50%" cy="50%" r="96" fill="none" stroke="#3b82f6" strokeWidth="1.5" opacity="0.4" strokeDasharray="8,4" />
+            <circle
+              cx="50%"
+              cy="50%"
+              r="96"
+              fill="none"
+              stroke="url(#orbitGradient)"
+              strokeWidth="3"
+              opacity="0.9"
+              filter="url(#glow)"
+            />
+            <circle
+              cx="50%"
+              cy="50%"
+              r="96"
+              fill="none"
+              stroke="#3b82f6"
+              strokeWidth="1.5"
+              opacity="0.4"
+              strokeDasharray="8,4"
+            />
           </svg>
 
           {/* Enhanced core */}
-          <div className="absolute w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 via-purple-400 to-teal-400 animate-pulse flex items-center justify-center z-10"
-            style={{ boxShadow: "0 0 40px rgba(59, 130, 246, 0.8), 0 0 60px rgba(168, 85, 247, 0.6), inset 0 0 20px rgba(255,255,255,0.4)" }}>
-            <div className="absolute w-10 h-10 rounded-full border-2 border-blue-400/60 animate-ping opacity-100" style={{ animationDuration: "1.5s" }}></div>
-            <div className="absolute w-14 h-14 rounded-full border-2 border-purple-400/40 animate-ping opacity-70" style={{ animationDelay: "0.5s", animationDuration: "2s" }}></div>
+          <div
+            className="absolute w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 via-purple-400 to-teal-400 animate-pulse flex items-center justify-center z-10"
+            style={{
+              boxShadow:
+                "0 0 40px rgba(59, 130, 246, 0.8), 0 0 60px rgba(168, 85, 247, 0.6), inset 0 0 20px rgba(255,255,255,0.4)",
+            }}
+          >
+            <div
+              className="absolute w-10 h-10 rounded-full border-2 border-blue-400/60 animate-ping opacity-100"
+              style={{ animationDuration: "1.5s" }}
+            ></div>
+            <div
+              className="absolute w-14 h-14 rounded-full border-2 border-purple-400/40 animate-ping opacity-70"
+              style={{ animationDelay: "0.5s", animationDuration: "2s" }}
+            ></div>
             <div className="w-2 h-2 rounded-full bg-white backdrop-blur-md shadow-lg shadow-white/50"></div>
           </div>
 
           {/* Orbit circle with glow */}
-          <div className="absolute w-48 h-48 rounded-full border-3 border-white/50"
-            style={{ boxShadow: "0 0 20px rgba(59, 130, 246, 0.5), inset 0 0 20px rgba(59, 130, 246, 0.2)", filter: "drop-shadow(0 0 10px rgba(168, 85, 247, 0.3))" }}></div>
+          <div
+            className="absolute w-48 h-48 rounded-full border-3 border-white/50"
+            style={{
+              boxShadow:
+                "0 0 20px rgba(59, 130, 246, 0.5), inset 0 0 20px rgba(59, 130, 246, 0.2)",
+              filter: "drop-shadow(0 0 10px rgba(168, 85, 247, 0.3))",
+            }}
+          ></div>
 
           {timelineData.map((item, index) => {
             const position = calculateNodePosition(index, timelineData.length);
@@ -276,8 +328,9 @@ export default function RadialOrbitalTimeline({
                 }}
               >
                 <div
-                  className={`absolute rounded-full -inset-1 ${isPulsing ? "animate-pulse" : ""
-                    }`}
+                  className={`absolute rounded-full -inset-1 ${
+                    isPulsing ? "animate-pulse" : ""
+                  }`}
                   style={{
                     background: item.color
                       ? `radial-gradient(circle, ${item.color}40 0%, ${item.color}20 40%, rgba(255,255,255,0) 70%)`
@@ -287,49 +340,54 @@ export default function RadialOrbitalTimeline({
                     left: `-${(item.energy * 0.4 + 30 - 32) / 2}px`,
                     top: `-${(item.energy * 0.4 + 30 - 32) / 2}px`,
                     animationDuration: isPulsing ? "1.5s" : undefined,
-                    boxShadow: item.color ? `0 0 20px ${item.color}30, inset 0 0 10px ${item.color}20` : "none"
+                    boxShadow: item.color
+                      ? `0 0 20px ${item.color}30, inset 0 0 10px ${item.color}20`
+                      : "none",
                   }}
                 ></div>
 
                 <div
                   className={`
                   w-8 h-8 rounded-full flex items-center justify-center
-                  ${item.color
+                  ${
+                    item.color
                       ? ""
                       : isExpanded
                         ? "bg-white text-black"
                         : isRelated
                           ? "bg-white/50 text-black"
                           : "bg-black text-white"
-                    }
+                  }
                   border-2 
-                  ${isExpanded
+                  ${
+                    isExpanded
                       ? "shadow-lg shadow-white/40"
                       : isRelated
                         ? "animate-pulse"
                         : ""
-                    }
+                  }
                   transition-all duration-300 transform
                   ${isExpanded ? "scale-125" : ""}
-                  ${isExpanded
+                  ${
+                    isExpanded
                       ? "border-white"
                       : isRelated
                         ? "border-white/60"
                         : item.color
                           ? "border-white/60"
                           : "border-white/40"
-                    }
+                  }
                 `}
                   style={
                     item.color
                       ? {
-                        backgroundColor: item.color,
-                        boxShadow: isExpanded
-                          ? `0 0 30px ${item.color}, 0 0 50px ${item.color}60, inset 0 0 15px rgba(255,255,255,0.4), 0 0 20px rgba(0,0,0,0.8)`
-                          : `0 0 15px ${item.color}80, 0 0 25px ${item.color}40, inset 0 0 5px rgba(255,255,255,0.2)`,
-                        filter: "drop-shadow(0 0 8px rgba(0,0,0,0.5))",
-                        cursor: "pointer"
-                      }
+                          backgroundColor: item.color,
+                          boxShadow: isExpanded
+                            ? `0 0 30px ${item.color}, 0 0 50px ${item.color}60, inset 0 0 15px rgba(255,255,255,0.4), 0 0 20px rgba(0,0,0,0.8)`
+                            : `0 0 15px ${item.color}80, 0 0 25px ${item.color}40, inset 0 0 5px rgba(255,255,255,0.2)`,
+                          filter: "drop-shadow(0 0 8px rgba(0,0,0,0.5))",
+                          cursor: "pointer",
+                        }
                       : {}
                   }
                 >
@@ -354,7 +412,7 @@ export default function RadialOrbitalTimeline({
                       <div className="flex justify-between items-center">
                         <Badge
                           className={`px-2 text-xs ${getStatusStyles(
-                            item.status
+                            item.status,
                           )}`}
                         >
                           {item.status === "completed"
@@ -401,7 +459,7 @@ export default function RadialOrbitalTimeline({
                           <div className="flex flex-wrap gap-1">
                             {item.relatedIds.map((relatedId) => {
                               const relatedItem = timelineData.find(
-                                (i) => i.id === relatedId
+                                (i) => i.id === relatedId,
                               );
                               return (
                                 <Button

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Virtual Gadolinium</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a1c; --surface:#13122b; --line:rgba(255,255,255,.09); --text:#f3f2fb; --muted:#a19fbd;
+  --violet:#8b5cf6; --violet-2:#a78bfa; --cyan:#2dd4e6; --on-violet:#fff;
+  --glow:rgba(139,92,246,.28); --nav-bg:rgba(10,10,28,.72);
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Hanken Grotesk","Segoe UI",system-ui,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f6f5fc; --surface:#fff; --line:rgba(20,18,60,.11); --text:#14122e; --muted:#5d5b7a;
+    --violet:#6d3df0; --violet-2:#6d3df0; --glow:rgba(109,61,240,.16); --nav-bg:rgba(246,245,252,.78);
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f6f5fc; --surface:#fff; --line:rgba(20,18,60,.11); --text:#14122e; --muted:#5d5b7a;
+  --violet:#6d3df0; --violet-2:#6d3df0; --glow:rgba(109,61,240,.16); --nav-bg:rgba(246,245,252,.78);
+}
+:root[data-theme="dark"]{
+  --bg:#0a0a1c; --surface:#13122b; --line:rgba(255,255,255,.09); --text:#f3f2fb; --muted:#a19fbd;
+  --violet:#8b5cf6; --violet-2:#a78bfa; --glow:rgba(139,92,246,.28); --nav-bg:rgba(10,10,28,.72);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--violet-2);outline-offset:3px;border-radius:8px}
+
+/* Nav */
+header.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:linear-gradient(180deg,rgba(10,10,28,.95),rgba(10,10,28,.8));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--line);box-shadow:0 18px 34px -30px rgba(0,0,0,.55)}
+.nav-in{max-width:1200px;margin:0 auto;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:-.02em}
+.brand svg{color:var(--violet-2);filter:drop-shadow(0 0 12px rgba(167,139,250,.5))}
+.links{display:flex;align-items:center;gap:28px;font-size:15px;color:var(--muted)}
+.links a{position:relative;transition:color .15s ease}
+.links a::after{content:"";position:absolute;left:0;bottom:-8px;width:100%;height:2px;border-radius:999px;background:var(--violet-2);transform:scaleX(0);transform-origin:left;transition:transform .18s ease}
+.links a:hover{color:var(--text)}
+.links a:hover::after{transform:scaleX(1)}
+.btn{display:inline-flex;align-items:center;gap:10px;font:600 15px/1 var(--body);padding:13px 22px;border-radius:12px;border:1px solid transparent;cursor:pointer;transition:transform .15s,background .15s,border-color .15s,box-shadow .15s}
+.btn-primary{background:linear-gradient(135deg,var(--violet),#7c3aed);color:var(--on-violet);box-shadow:0 12px 28px -12px var(--glow)}
+.btn-primary:hover{transform:translateY(-1px);filter:brightness(1.08);box-shadow:0 16px 32px -14px var(--glow)}
+.btn-ghost{background:transparent;color:var(--text);border-color:var(--line)}
+.btn-ghost:hover{border-color:var(--violet-2);transform:translateY(-1px)}
+.nav .btn{padding:11px 18px;font-size:14px;border-radius:999px}
+
+/* Hero */
+.hero{position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-20% -10% auto 35%;height:90%;background:radial-gradient(closest-side,var(--glow),transparent);pointer-events:none}
+.hero-in{position:relative;max-width:1200px;margin:0 auto;padding:88px 28px 96px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.02fr);gap:64px;align-items:center}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(38px,5.4vw,66px);line-height:1.03;letter-spacing:-.035em;margin:0 0 22px;max-width:13ch}
+.lead{color:var(--muted);font-size:19px;max-width:46ch;margin:0 0 34px}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:38px}
+.play{width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center}
+.facts{display:flex;flex-wrap:wrap;gap:10px 26px;list-style:none;margin:0;padding:0;color:var(--muted);font-size:14.5px}
+.facts li{display:flex;align-items:center;gap:8px}
+.facts svg{color:var(--violet-2)}
+
+/* Viewer */
+.viewer{background:#05050f;border:1px solid var(--line);border-radius:22px;padding:10px;box-shadow:0 40px 90px -30px var(--glow),0 0 0 1px rgba(139,92,246,.08)}
+.stage{position:relative;aspect-ratio:1/1;border-radius:14px;overflow:hidden;background:#000;touch-action:pan-y;user-select:none}
+.stage .lyr{position:absolute;inset:0}
+.stage .lyr svg{width:100%;height:100%;display:block}
+.top{clip-path:inset(0 0 0 var(--pos,50%))}
+.top .lyr{transition:opacity .45s}
+.divider{position:absolute;top:0;bottom:0;left:var(--pos,50%);width:2px;background:#fff;box-shadow:0 0 18px rgba(255,255,255,.55);transform:translateX(-1px);pointer-events:none}
+.divider i{position:absolute;top:50%;left:50%;width:40px;height:40px;margin:-20px;border-radius:50%;background:#fff;color:#241a52;display:grid;place-items:center;box-shadow:0 6px 20px rgba(0,0,0,.45)}
+.stage input[type=range]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;margin:0}
+.stage:has(input:focus-visible){outline:2px solid var(--violet-2);outline-offset:2px}
+.tag{position:absolute;top:12px;font:600 12.5px/1 var(--body);padding:7px 11px;border-radius:999px;background:rgba(5,5,15,.7);color:#fff;border:1px solid rgba(255,255,255,.15);backdrop-filter:blur(6px);pointer-events:none}
+.tag.l{left:12px}.tag.r{right:12px}
+.controls{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 6px 4px;flex-wrap:wrap}
+.seg{display:inline-flex;background:rgba(255,255,255,.06);border-radius:11px;padding:4px}
+.seg button{font:600 13.5px/1 var(--body);color:#b9b7d4;background:none;border:0;padding:9px 14px;border-radius:8px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--violet);color:#fff}
+.cap{margin:0;color:#9d9bbb;font-size:13.5px}
+
+@media (max-width:900px){
+  .links a:not(.btn){display:none}
+  .hero-in{grid-template-columns:1fr;gap:44px;padding:56px 20px 64px}
+  .nav-in{padding:12px 20px}
+  h1{max-width:16ch}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <clipPath id="bc"><ellipse cx="200" cy="205" rx="146" ry="166"/></clipPath>
+    <filter id="fGray" x="0" y="0" width="400" height="400" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency=".028 .034" numOctaves="4" seed="7"/>
+      <feColorMatrix values="1.56 .52 .52 0 -.8  1.56 .52 .52 0 -.8  1.56 .52 .52 0 -.8  0 0 0 0 1"/>
+      <feComponentTransfer><feFuncR type="table" tableValues=".12 .85 .18 .8 .22 .75 .3"/><feFuncG type="table" tableValues=".12 .85 .18 .8 .22 .75 .3"/><feFuncB type="table" tableValues=".12 .85 .18 .8 .22 .75 .3"/></feComponentTransfer>
+    </filter>
+    <filter id="fVC" x="0" y="0" width="400" height="400" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency=".028 .034" numOctaves="4" seed="7"/>
+      <feColorMatrix values="1.56 .52 .52 0 -.8  1.56 .52 .52 0 -.8  1.56 .52 .52 0 -.8  0 0 0 0 1"/>
+      <feComponentTransfer><feFuncR type="table" tableValues=".05 .6 .1 .5 .15 .4 .2"/><feFuncG type="table" tableValues=".02 .12 .03 .2 .06 .16 .08"/><feFuncB type="table" tableValues=".25 1 .35 .95 .45 .9 .55"/></feComponentTransfer>
+    </filter>
+    <filter id="fSeg" x="0" y="0" width="400" height="400" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency=".013 .016" numOctaves="2" seed="11"/>
+      <feColorMatrix values="1.56 .52 .52 0 -.8  1.56 .52 .52 0 -.8  1.56 .52 .52 0 -.8  0 0 0 0 1"/>
+      <feComponentTransfer><feFuncR type="discrete" tableValues=".16 .98 .55 .96 .2 .85"/><feFuncG type="discrete" tableValues=".83 .45 .25 .86 .55 .2"/><feFuncB type="discrete" tableValues=".92 .1 .95 .22 .98 .6"/></feComponentTransfer>
+    </filter>
+  </defs>
+</svg>
+
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="#" aria-label="Virtual Gadolinium home">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3A3.5 3.5 0 0 0 6 6.3 3.6 3.6 0 0 0 4 9.5c0 1 .4 1.8 1 2.4-.6.6-1 1.5-1 2.4A3.7 3.7 0 0 0 7.7 18 3 3 0 0 0 12 20V4.5A3 3 0 0 0 9.5 3Z"/><path d="M14.5 3A3.5 3.5 0 0 1 18 6.3a3.6 3.6 0 0 1 2 3.2c0 1-.4 1.8-1 2.4.6.6 1 1.5 1 2.4a3.7 3.7 0 0 1-3.7 3.7A3 3 0 0 1 12 20V4.5A3 3 0 0 1 14.5 3Z"/></svg>
+      Virtual Gadolinium
+    </a>
+    <nav class="links" aria-label="Primary">
+      <a href="#">Home</a><a href="#">How it works</a><a href="#">Features</a><a href="#">Use cases</a><a href="#">About</a><a href="#">Contact</a>
+      <a class="btn btn-primary" href="#">Request access</a>
+    </nav>
+  </div>
+</header>
+
+<main class="hero">
+  <div class="hero-in">
+    <section>
+      <h1>Contrast-enhanced MRI, without the contrast agent.</h1>
+      <p class="lead">Virtual Gadolinium uses deep learning to turn a routine pre-contrast scan into a contrast-enhanced image and an automated segmentation. No injection, no second acquisition.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="#">Request access
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a class="btn btn-ghost" href="#"><span class="play"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l14-8z"/></svg></span>See how it works</a>
+      </div>
+      <ul class="facts">
+        <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>No contrast agent</li>
+        <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>No extra scan</li>
+        <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg>AI-powered</li>
+      </ul>
+    </section>
+
+    <section class="viewer" aria-label="Interactive before and after MRI comparison">
+      <div class="stage" id="stage" style="--pos:50%">
+        <div class="lyr" id="base"></div>
+        <div class="top">
+          <div class="lyr" id="vc"></div>
+          <div class="lyr" id="seg" style="opacity:0"></div>
+        </div>
+        <div class="divider"><i><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg></i></div>
+        <span class="tag l">Pre-contrast</span>
+        <span class="tag r" id="rtag">Virtual contrast</span>
+        <input type="range" id="slider" min="0" max="100" value="50" aria-label="Compare pre-contrast with enhanced output">
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Output type">
+          <button type="button" data-k="vc" aria-pressed="true">Virtual contrast</button>
+          <button type="button" data-k="seg" aria-pressed="false">Segmentation</button>
+        </div>
+        <p class="cap" id="cap">Drag to compare with the original scan.</p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function(){
+  function brain(f){
+    var skull = f==='fGray' ? '#d8d8d8' : f==='fVC' ? '#9b7bff' : '#6a4aa8';
+    return '<svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'+
+      '<rect width="400" height="400" fill="#000"/>'+
+      '<ellipse cx="200" cy="205" rx="168" ry="188" fill="none" stroke="'+skull+'" stroke-width="9" opacity=".85"/>'+
+      '<g clip-path="url(#bc)"><rect width="400" height="400" filter="url(#'+f+')"/></g>'+
+      '<path d="M200 178C176 162 160 186 170 214c8 20 25 16 30 2 5 14 22 18 30-2 10-28-6-52-30-36z" fill="#04040a" opacity=".85"/>'+
+      '<line x1="200" y1="42" x2="200" y2="368" stroke="#000" stroke-width="3" opacity=".55"/>'+
+      '<ellipse cx="200" cy="205" rx="146" ry="166" fill="none" stroke="'+(f==='fVC'?'#c4b0ff':'#000')+'" stroke-width="'+(f==='fVC'?2:4)+'" opacity=".7"/>'+
+      '</svg>';
+  }
+  document.getElementById('base').innerHTML = brain('fGray');
+  document.getElementById('vc').innerHTML = brain('fVC');
+  document.getElementById('seg').innerHTML = brain('fSeg');
+
+  var stage = document.getElementById('stage'), slider = document.getElementById('slider');
+  function setPos(v){ stage.style.setProperty('--pos', v+'%'); slider.value = v; }
+  slider.addEventListener('input', function(){ setPos(slider.value); });
+
+  var copy = {
+    vc:'Synthesized enhancement from the pre-contrast input.',
+    seg:'Anatomical regions segmented automatically.'
+  };
+  var names = {vc:'Virtual contrast', seg:'Segmentation'};
+  document.querySelectorAll('.seg button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var k = b.dataset.k;
+      document.querySelectorAll('.seg button').forEach(function(x){ x.setAttribute('aria-pressed', x===b); });
+      document.getElementById('vc').style.opacity = k==='vc' ? 1 : 0;
+      document.getElementById('seg').style.opacity = k==='seg' ? 1 : 0;
+      document.getElementById('rtag').textContent = names[k];
+      document.getElementById('cap').textContent = copy[k];
+    });
+  });
+
+  // One entrance moment: the enhanced scan sweeps in from the right.
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+    var t0 = null, from = 100, to = 50, dur = 1400;
+    setPos(from);
+    requestAnimationFrame(function step(t){
+      if(t0===null) t0 = t + 400;
+      var p = Math.min(Math.max((t - t0)/dur, 0), 1), e = 1 - Math.pow(1-p, 3);
+      setPos(Math.round((from + (to-from)*e)*10)/10);
+      if(p<1) requestAnimationFrame(step);
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1083,44 +1083,68 @@ export default function App({ modality = "mri", onChangeModality }) {
         <main id="workspace-main" style={{ maxWidth: 1280, margin: "0 auto", padding: "56px clamp(16px, 3vw, 40px) 0" }}>
 
           {/* Hero */}
-          <div style={{ marginBottom: 56, animation: "fadeSlideUp 0.5s ease both" }}>
-            <p style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 12,
-              color: Colors.accentViolet,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              marginBottom: 14,
-              fontWeight: 700
-            }}>Virtual Gadolinium Suite</p>
-            <h1 style={{
-              fontSize: "clamp(40px, 6vw, 64px)",
-              fontWeight: 800,
-              fontFamily: "'Playfair Display', serif",
-              color: Colors.textPrimary,
-              lineHeight: 1.1,
-              letterSpacing: "-0.03em",
-              marginBottom: 20,
-            }}>
-              {modality === "xray" ? (
-                <>Planar X-Ray <span style={{ color: Colors.accentViolet, fontWeight: 800 }}>Analysis</span></>
-              ) : (
-                <>Advanced Brain Tumor <span style={{ color: Colors.accentViolet, fontWeight: 800 }}>Segmentation</span></>
-              )}
-            </h1>
-            <p style={{
-              fontSize: 16,
-              color: Colors.textSecondary,
-              maxWidth: 600,
-              lineHeight: 1.7,
-              fontWeight: 400,
-              fontFamily: "'Inter', sans-serif"
-            }}>
-              {modality === "xray"
-                ? "Clinical-grade chest and planar X-Ray inference powered by deep learning — optimized for your 2D radiograph workflow."
-                : "Clinical-grade MRI tumor segmentation powered by intelligent deep learning."}
-            </p>
-          </div>
+        <div style={{ marginBottom: 56, animation: "fadeSlideUp 0.5s ease both" }}>
+      {/* Product label */}
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 14px",
+          borderRadius: 999,
+          background: "rgba(139,92,246,0.12)",
+          border: "1px solid rgba(139,92,246,0.3)",
+          color: Colors.accentViolet,
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 13,
+          fontWeight: 600,
+          marginBottom: 22,
+        }}
+      >
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: Colors.accentViolet,
+            boxShadow: `0 0 10px ${Colors.accentViolet}`,
+          }}
+        />
+        Virtual Gadolinium Suite
+      </div>
+ 
+      {/* Headline */}
+      <h1
+        style={{
+          fontFamily: "'Bricolage Grotesque', 'Inter', sans-serif",
+          fontSize: "clamp(38px, 5.6vw, 62px)",
+          fontWeight: 700,
+          lineHeight: 1.05,
+          letterSpacing: "-0.035em",
+          color: Colors.textPrimary,
+          margin: "0 0 20px",
+          maxWidth: "18ch",
+        }}
+      >
+        {modality === "xray" ? "Planar X-ray analysis" : "Brain tumor segmentation"}
+      </h1>
+ 
+      {/* Supporting text */}
+      <p
+        style={{
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 17,
+          lineHeight: 1.7,
+          color: Colors.textSecondary,
+          maxWidth: "52ch",
+          margin: 0,
+        }}
+      >
+        {modality === "xray"
+          ? "Chest and planar X-ray inference powered by deep learning, built for your 2D radiograph workflow."
+          : "Automated MRI tumor segmentation powered by deep learning, from a routine pre-contrast scan."}
+      </p>
+    </div>
 
           {/* Upload / validation error */}
           {uploadError && (
@@ -1416,8 +1440,10 @@ export default function App({ modality = "mri", onChangeModality }) {
             <div style={{ animation: "fadeSlideUp 0.4s ease both" }}>
               <div style={{
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
+                flexDirection: "column",
+                justifyContent: "start",
+                gap: 12,
+                flexWrap:"wrap",
                 marginBottom: 32,
                 paddingBottom: 20,
                 borderBottom: `1px solid ${Colors.border}`,
@@ -1990,28 +2016,19 @@ export default function App({ modality = "mri", onChangeModality }) {
               )}
 
               {/* Orbital Region Legend - Auto displayed */}
-              <div style={{ marginBottom: 40 }}>
+              <div style={{ marginBottom: 40, display: "grid" }}>
                 <p style={{
-                  fontSize: 12,
+                  fontSize: 20,
                   color: Colors.textTertiary,
                   fontFamily: "'DM Mono', monospace",
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
                   marginBottom: 18,
                   fontWeight: 600,
+                  margin: "0 auto 20px auto",
                   paddingLeft: 8
                 }}>Interactive Region Legend</p>
-                <div style={{
-                  background: Colors.cardBg,
-                  border: `1px solid ${Colors.border}`,
-                  borderRadius: 12,
-                  padding: "32px 40px",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-                  minHeight: 580,
-                  width: "100%"
-                }}>
                   <RegionLegendOrbitals />
-                </div>
               </div>
 
               <CollectiveTeamSection />

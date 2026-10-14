@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Hero from "./components/Hero";
 
 // ── Replace these with your actual image imports ──
 // import mriHeroImg from "./assets/mri_hero.png";        // Image 2 — MRI comparison (pre/virtual/seg)
@@ -113,6 +114,12 @@ const globalStyles = `
     z-index: 0;
     opacity: 0.6;
   }
+
+ @media (max-width: 980px) {
+   .vg-hero-grid { grid-template-columns: 1fr !important; }
+   .vg-topbar { gap: 18px !important; }
+   .vg-nav-links { display: none !important; }
+ }
 `;
 
 // ─── Hooks ───
@@ -218,7 +225,7 @@ function Navbar({ onRequestAccess }) {
   ];
 
   return (
-    <nav style={{
+    <nav className="vg-topbar" style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
       padding: "0 5%", height: 96,
       display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -230,7 +237,7 @@ function Navbar({ onRequestAccess }) {
       <NavLogo />
 
       {/* Desktop links */}
-      <ul style={{ display: "flex", alignItems: "center", gap: 2, listStyle: "none" }}>
+      <ul className="vg-nav-links" style={{ display: "flex", alignItems: "center", gap: 2, listStyle: "none" }}>
         {links.map(l => (
           <li key={l.href}>
             <a href={l.href} style={{
@@ -270,7 +277,7 @@ function Navbar({ onRequestAccess }) {
   );
 }
 
-function Hero({ onRequestAccess }) {
+function HeroOld({ onRequestAccess }) {
   useEffect(() => {
     setTimeout(() => { document.querySelectorAll("#hero .vg-fade-in").forEach(el => el.classList.add("visible")); }, 100);
   }, []);
@@ -281,19 +288,22 @@ function Hero({ onRequestAccess }) {
       <div style={{ position: "absolute", width: 700, height: 700, borderRadius: "50%", background: "radial-gradient(circle,rgba(124,58,237,0.18) 0%,transparent 70%)", top: -200, left: -200, pointerEvents: "none" }} />
       <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle,rgba(79,70,229,0.12) 0%,transparent 70%)", bottom: 0, right: "10%", pointerEvents: "none" }} />
 
-      <div style={{ position: "relative", zIndex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center", maxWidth: 1280, margin: "0 auto", width: "100%" }}>
+      <div className="vg-hero-grid" style={{ position: "relative", zIndex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center", maxWidth: 1280, margin: "0 auto", width: "100%" }}>
         <div>
 
-          <h1 className="vg-fade-in vg-delay-1" style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: "clamp(2.8rem,5vw,4.2rem)", fontWeight: 800, lineHeight: 1.08, letterSpacing: "-0.04em", marginBottom: 8 }}>
-            Virtual Contrast.<br />
-            <span style={{ background: "linear-gradient(90deg,#a78bfa,#7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Real Clarity.</span>
+          <div className="vg-fade-in vg-delay-1" style={{ fontSize: "0.72rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "#7efcbd", fontWeight: 700, marginBottom: 18 }}>
+            Virtual Gadolinium Suite
+          </div>
+
+          <h1 className="vg-fade-in vg-delay-2" style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: "clamp(2.6rem,4.5vw,4.2rem)", fontWeight: 800, lineHeight: 1.05, letterSpacing: "-0.05em", marginBottom: 10, maxWidth: 620 }}>
+            Advanced Brain Tumor Segmentation
           </h1>
 
-          <p className="vg-fade-in vg-delay-2" style={{ marginTop: 20, fontSize: "1rem", color: "var(--text-secondary)", maxWidth: 440, lineHeight: 1.75 }}>
-            Virtual Gadolinium uses deep learning to synthesize contrast-enhanced MRI scans and automated segmentations from routine pre-contrast input — no contrast agent, no extra scan, just intelligence.
+          <p className="vg-fade-in vg-delay-3" style={{ marginTop: 12, fontSize: "1rem", color: "var(--text-secondary)", maxWidth: 500, lineHeight: 1.75 }}>
+            Clinical-grade AI tumor segmentation powered by intelligent deep learning.
           </p>
 
-          <div className="vg-fade-in vg-delay-3" style={{ marginTop: 36, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div className="vg-fade-in vg-delay-4" style={{ marginTop: 32, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <BtnPrimary onRequestAccess={onRequestAccess}>
               Request Access
               <ArrowIcon />
@@ -306,24 +316,45 @@ function Hero({ onRequestAccess }) {
             </BtnSecondary>
           </div>
 
-          <div className="vg-fade-in vg-delay-4" style={{ marginTop: 40, display: "flex", gap: 24, flexWrap: "wrap" }}>
+          <div className="vg-fade-in vg-delay-4" style={{ marginTop: 28, display: "flex", gap: 18, flexWrap: "wrap" }}>
             {[
               { icon: "shield", label: "No Contrast Agent" },
               { icon: "clock", label: "No Extra Scan" },
               { icon: "star", label: "AI-Powered" },
             ].map(p => <HeroPill key={p.label} icon={p.icon} label={p.label} />)}
           </div>
+
+          <div className="vg-fade-in vg-delay-4" style={{ marginTop: 28, maxWidth: 560, border: "1px solid var(--border)", borderRadius: 14, background: "rgba(11, 16, 32, 0.7)", overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", fontSize: "0.7rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-secondary)" }}>
+              <span>Analysis complete</span>
+              <span style={{ color: "#7efcbd" }}>Segmentation Results</span>
+            </div>
+            <div style={{ padding: "14px 16px 16px", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
+              <div>
+                <div style={{ fontSize: "0.64rem", color: "var(--text-secondary)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>Dice score</div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 700, letterSpacing: "-0.04em", color: "#7efcbd" }}>0.9537</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.64rem", color: "var(--text-secondary)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>Lesion</div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 700, letterSpacing: "-0.04em", color: "#eaf7ff" }}>2.2 cm</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.64rem", color: "var(--text-secondary)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>Confidence</div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 700, letterSpacing: "-0.04em", color: "#7efcbd" }}>96%</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Hero visual — MRI comparison image */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ width: "100%", maxWidth: 560, borderRadius: 20, overflow: "hidden", border: "1px solid var(--border-purple)", boxShadow: "0 0 60px rgba(124,58,237,0.25),0 30px 80px rgba(0,0,0,0.5)", position: "relative" }}>
+          <div style={{ width: "100%", maxWidth: 560, borderRadius: 20, overflow: "hidden", border: "1px solid rgba(126,252,189,0.18)", boxShadow: "0 0 0 1px rgba(126,252,189,0.12), 0 25px 80px rgba(0,0,0,0.5)", position: "relative", background: "rgba(5, 10, 20, 0.8)" }}>
             <img
               src={mriHeroImg}
               alt="MRI scan comparison: pre-contrast, virtual contrast, and segmentation"
               style={{ width: "100%", height: "auto", display: "block" }}
             />
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 60%, rgba(2,6,23,0.6))", pointerEvents: "none" }} />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(9, 11, 26, 0.12), rgba(9, 11, 26, 0.48))", pointerEvents: "none" }} />
           </div>
         </div>
       </div>
@@ -708,7 +739,7 @@ export default function VirtualGadolinium({ onRequestAccess }) {
   return (
     <div className="vg-noise" style={{ fontFamily: "'Inter',sans-serif", background: "var(--bg-primary)", color: "var(--text-primary)", overflowX: "hidden", lineHeight: 1.6 }}>
       <Navbar onRequestAccess={onRequestAccess} />
-      <Hero onRequestAccess={onRequestAccess} />
+      <Hero heroImg={mriHeroImg} onRequestAccess={onRequestAccess} />
       <HowItWorks />
       <Features />
       <UseCases onRequestAccess={onRequestAccess} />
